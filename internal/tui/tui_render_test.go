@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/lynicis/actup/internal/parser"
+	"github.com/muesli/termenv"
 )
 
 func TestViewChecklistRendering(t *testing.T) {
@@ -67,6 +69,54 @@ func TestViewChecklistRendering(t *testing.T) {
 		cleanLine := stripANSI(line)
 		if !strings.HasPrefix(cleanLine, expectedPrefix) {
 			t.Errorf("line %d doesn't start with expected prefix %q: got %q", i, expectedPrefix, cleanLine)
+		}
+	}
+}
+
+func TestViewChecklistCursorHighlight(t *testing.T) {
+	oldProfile := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(oldProfile)
+
+	m := model{
+		state: stateChecklist,
+		items: []ActionItem{
+			{Owner: "actions", Repo: "upload-artifact", Current: "v7", Latest: "v7.0.1", Selected: true},
+			{Owner: "golangci", Repo: "golangci-lint-action", Current: "v9", Latest: "v9.2.1", Selected: true},
+			{Owner: "goreleaser", Repo: "goreleaser-action", Current: "v7", Latest: "v7.2.2", Selected: true},
+		},
+		actions:     []parser.ActionRef{{File: "ci.yml"}},
+		selectedSet: map[int]bool{0: true, 1: true, 2: true},
+		cursor:      1,
+	}
+
+	output := m.viewChecklist()
+
+	lines := strings.Split(output, "\n")
+	var dataLines []string
+	for _, line := range lines {
+		if strings.Contains(line, "[") && strings.Contains(line, "/") {
+			dataLines = append(dataLines, line)
+		}
+	}
+
+	if len(dataLines) != 3 {
+		t.Fatalf("expected 3 data lines, got %d", len(dataLines))
+	}
+
+	// The focused item (index 1) should contain the cursor text color escape sequence
+	focusedLine := dataLines[1]
+	if !strings.Contains(focusedLine, "38;5;87") {
+		t.Errorf("focused line should contain cursor text color (87), got: %q", focusedLine)
+	}
+
+	// Other items should not have the cursor text color
+	for i, line := range dataLines {
+		if i == 1 {
+			continue
+		}
+		if strings.Contains(line, "38;5;87") {
+			t.Errorf("line %d should not contain cursor text color, got: %q", i, line)
 		}
 	}
 }

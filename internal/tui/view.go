@@ -29,7 +29,7 @@ func (m model) viewChecklist() string {
 	}
 	nameWidth := maxNameLen + 2
 
-	for _, item := range m.items {
+	for i, item := range m.items {
 		prefix := "[ ]"
 		style := normalStyle
 		suffix := ""
@@ -49,6 +49,10 @@ func (m model) viewChecklist() string {
 			prefix = "[⚠]"
 			style = amberStyle
 			suffix = " (API error)"
+		}
+
+		if i == m.cursor {
+			style = cursorStyle
 		}
 
 		change := ""
