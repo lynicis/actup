@@ -70,7 +70,7 @@ func replaceInFile(file string, action parser.ActionRef, newTag string) error {
 
 	for i, line := range lines {
 		if i+1 == action.Line {
-			pattern := fmt.Sprintf("- uses: %s/%s@%s", action.Owner, action.Repo, action.Current)
+			pattern := fmt.Sprintf("uses: %s/%s@%s", action.Owner, action.Repo, action.Current)
 			if strings.Contains(line, pattern) {
 				lines[i] = strings.Replace(line, action.Current, newTag, 1)
 				found = true

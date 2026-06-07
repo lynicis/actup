@@ -59,6 +59,69 @@ jobs:
 	}
 }
 
+func TestExtractActionsMultilineSteps(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "test.yml")
+	content := `name: CI
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+      - name: Docker Login
+        uses: docker/login-action@v2
+      - name: Local Action
+        uses: ./local-action
+      - name: Docker Action
+        uses: docker://nginx:latest
+      - name: Setup Node
+        uses: actions/setup-node@v3.2.0
+`
+
+	if err := os.WriteFile(workflowPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+
+	actions, err := ExtractActions(t.Context(), []string{workflowPath})
+	if err != nil {
+		t.Fatalf("ExtractActions failed: %v", err)
+	}
+
+	if len(actions) != 4 {
+		t.Errorf("expected 4 actions (excluding local and docker), got %d", len(actions))
+	}
+
+	expected := []struct {
+		owner, repo, ref string
+		line             int
+	}{
+		{"actions", "checkout", "v3", 8},
+		{"actions", "setup-go", "v4", 10},
+		{"docker", "login-action", "v2", 12},
+		{"actions", "setup-node", "v3.2.0", 18},
+	}
+
+	for i, exp := range expected {
+		if actions[i].Owner != exp.owner {
+			t.Errorf("action[%d].Owner = %s, want %s", i, actions[i].Owner, exp.owner)
+		}
+		if actions[i].Repo != exp.repo {
+			t.Errorf("action[%d].Repo = %s, want %s", i, actions[i].Repo, exp.repo)
+		}
+		if actions[i].Current != exp.ref {
+			t.Errorf("action[%d].Current = %s, want %s", i, actions[i].Current, exp.ref)
+		}
+		if actions[i].Line != exp.line {
+			t.Errorf("action[%d].Line = %d, want %d", i, actions[i].Line, exp.line)
+		}
+	}
+}
+
 func TestParseActionRef(t *testing.T) {
 	tests := []struct {
 		uses      string

@@ -16,7 +16,7 @@ type ActionRef struct {
 	File    string
 }
 
-var usesRegex = regexp.MustCompile(`-\s+uses:\s*(.+?)\s*$`)
+var usesRegex = regexp.MustCompile(`^\s*(?:-\s+)?uses:\s*(.+?)\s*$`)
 
 func ExtractActions(ctx context.Context, files []string) ([]ActionRef, error) {
 	var actions []ActionRef

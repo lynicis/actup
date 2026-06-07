@@ -54,6 +54,54 @@ jobs:
 	}
 }
 
+func TestApplyUpgradesMultilineSteps(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "test.yml")
+	content := `name: CI
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+`
+
+	if err := os.WriteFile(workflowPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+
+	actions := []parser.ActionRef{
+		{Owner: "actions", Repo: "checkout", Current: "v3", Line: 8, File: workflowPath},
+	}
+
+	results, err := ApplyUpgrades(actions, "v4", false)
+	if err != nil {
+		t.Fatalf("ApplyUpgrades failed: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+
+	if !results[0].Updated {
+		t.Error("expected action to be updated")
+	}
+
+	updatedContent, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("failed to read updated workflow: %v", err)
+	}
+
+	expected := "uses: actions/checkout@v4"
+	if !contains(string(updatedContent), expected) {
+		t.Errorf("expected workflow to contain %q, got:\n%s", expected, string(updatedContent))
+	}
+}
+
 func TestApplyUpgradesDryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -126,6 +174,48 @@ jobs:
 	}
 
 	expectedLine := "      - uses: actions/checkout@v4.1.0"
+	if !contains(string(updated), expectedLine) {
+		t.Errorf("expected line %q in updated content, got:\n%s", expectedLine, string(updated))
+	}
+}
+
+func TestReplaceInFileMultilineSteps(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "test.yml")
+	content := `name: Test
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+`
+
+	if err := os.WriteFile(workflowPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+
+	action := parser.ActionRef{
+		Owner:   "actions",
+		Repo:    "checkout",
+		Current: "v3",
+		Line:    8,
+		File:    workflowPath,
+	}
+
+	err := replaceInFile(workflowPath, action, "v4.1.0")
+	if err != nil {
+		t.Fatalf("replaceInFile failed: %v", err)
+	}
+
+	updated, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("failed to read updated file: %v", err)
+	}
+
+	expectedLine := "        uses: actions/checkout@v4.1.0"
 	if !contains(string(updated), expectedLine) {
 		t.Errorf("expected line %q in updated content, got:\n%s", expectedLine, string(updated))
 	}
