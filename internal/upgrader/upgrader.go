@@ -5,13 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/lynicis/actup/internal/parser"
 )
-
-var usesPattern = regexp.MustCompile(`uses:\s*([a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+)@(.+)`)
 
 type Upgrade struct {
 	Action parser.ActionRef
@@ -92,8 +89,10 @@ func replaceInFile(file string, action parser.ActionRef, newTag string) error {
 	}
 	tmpPath := tmpFile.Name()
 
-	defer os.Remove(tmpPath)
-	defer tmpFile.Close()
+	defer func() {
+		_ = os.Remove(tmpPath)
+		_ = tmpFile.Close()
+	}()
 
 	if _, err := tmpFile.WriteString(strings.Join(lines, "\n")); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
@@ -115,11 +114,11 @@ func showDryRunDiff(file string, action parser.ActionRef, newTag string) error {
 	newLine := fmt.Sprintf("uses: %s/%s@%s", action.Owner, action.Repo, newTag)
 
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("--- a/%s\n", file))
-	buf.WriteString(fmt.Sprintf("+++ b/%s\n", file))
-	buf.WriteString(fmt.Sprintf("@@ -%d,%d +%d,%d @@\n", action.Line, 1, action.Line, 1))
-	buf.WriteString(fmt.Sprintf("-%s\n", oldLine))
-	buf.WriteString(fmt.Sprintf("+%s\n", newLine))
+	fmt.Fprintf(&buf, "--- a/%s\n", file)
+	fmt.Fprintf(&buf, "+++ b/%s\n", file)
+	fmt.Fprintf(&buf, "@@ -%d,%d +%d,%d @@\n", action.Line, 1, action.Line, 1)
+	fmt.Fprintf(&buf, "-%s\n", oldLine)
+	fmt.Fprintf(&buf, "+%s\n", newLine)
 
 	fmt.Print(buf.String())
 	return nil

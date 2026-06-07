@@ -320,10 +320,16 @@ func (m model) updateChecklist(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+type applyResult struct {
+	progress []progressItem
+	summary  summaryResult
+}
+
 func (m model) updateProgress(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case []progressItem:
-		m.progress = msg
+	case applyResult:
+		m.progress = msg.progress
+		m.summary = msg.summary
 		m.state = stateSummary
 		return m, nil
 	}
@@ -401,14 +407,14 @@ func (m model) applyUpgrades() tea.Msg {
 
 	_ = err
 
-	m.summary = summaryResult{
+	summary := summaryResult{
 		Upgraded:      upgradedCount,
 		UpToDate:      upToDateCount,
 		APIErrors:     apiErrCount,
 		UpgradedFiles: upgradedFiles,
 	}
 
-	return progress
+	return applyResult{progress: progress, summary: summary}
 }
 
 func getItemIndex(items []ActionItem, target ActionItem) int {
@@ -510,7 +516,7 @@ func (m model) viewProgress() string {
 			status = m.spinner.View()
 		}
 
-		b.WriteString(fmt.Sprintf("  %s %s/%s → %s\n", status, p.Owner, p.Repo, p.NewTag))
+		fmt.Fprintf(&b, "  %s %s/%s → %s\n", status, p.Owner, p.Repo, p.NewTag)
 	}
 
 	return b.String()

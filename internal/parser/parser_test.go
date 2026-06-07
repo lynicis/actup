@@ -28,7 +28,7 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	actions, err := ExtractActions(nil, []string{workflowPath})
+	actions, err := ExtractActions(t.Context(), []string{workflowPath})
 	if err != nil {
 		t.Fatalf("ExtractActions failed: %v", err)
 	}

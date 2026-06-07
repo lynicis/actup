@@ -29,7 +29,7 @@ func TestDiscoverWorkflows(t *testing.T) {
 		}
 	}
 
-	files, err := DiscoverWorkflows(nil, []string{workflowDir})
+	files, err := DiscoverWorkflows(t.Context(), []string{workflowDir})
 	if err != nil {
 		t.Fatalf("DiscoverWorkflows failed: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestDiscoverWorkflowsFilePath(t *testing.T) {
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	files, err := DiscoverWorkflows(nil, []string{workflowPath})
+	files, err := DiscoverWorkflows(t.Context(), []string{workflowPath})
 	if err != nil {
 		t.Fatalf("DiscoverWorkflows failed: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestDiscoverWorkflowsFilePath(t *testing.T) {
 func TestDiscoverWorkflowsEmpty(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	_, err := DiscoverWorkflows(nil, []string{filepath.Join(tmpDir, "nonexistent")})
+	_, err := DiscoverWorkflows(t.Context(), []string{filepath.Join(tmpDir, "nonexistent")})
 	if err != nil {
 		t.Fatalf("DiscoverWorkflows should not fail for nonexistent path: %v", err)
 	}
