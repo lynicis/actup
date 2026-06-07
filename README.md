@@ -1,164 +1,80 @@
-<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
-<a id="readme-top"></a>
+# actup
 
-<!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![Go Version][go-shield]][go-url]
-[![License][license-shield]][license-url]
-
-
-
-<h1 align="center">actup</h1>
+<p align="center">Upgrade GitHub Actions versions interactively from your terminal</p>
 
 <p align="center">
-  Upgrade GitHub Actions versions interactively from your terminal
-  <br />
-  <a href="https://github.com/lynicis/actup"><strong>Explore the docs »</strong></a>
-  <br />
+  <a href="https://github.com/lynicis/actup/graphs/contributors"><img src="https://img.shields.io/github/contributors/lynicis/actup.svg?style=for-the-badge" alt="Contributors"></a>
+  <a href="https://github.com/lynicis/actup/network/members"><img src="https://img.shields.io/github/forks/lynicis/actup.svg?style=for-the-badge" alt="Forks"></a>
+  <a href="https://github.com/lynicis/actup/stargazers"><img src="https://img.shields.io/github/stars/lynicis/actup.svg?style=for-the-badge" alt="Stargazers"></a>
+  <a href="https://github.com/lynicis/actup/issues"><img src="https://img.shields.io/github/issues/lynicis/actup.svg?style=for-the-badge" alt="Issues"></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/github/go-mod/go-version/lynicis/actup?style=for-the-badge" alt="Go Version"></a>
+  <a href="https://github.com/lynicis/actup/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lynicis/actup.svg?style=for-the-badge" alt="License"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/lynicis/actup"><strong>Explore the docs &raquo;</strong></a>
   <br />
   <a href="https://github.com/lynicis/actup/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
-  ·
+  &middot;
   <a href="https://github.com/lynicis/actup/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
 </p>
 
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-  </ol>
-</details>
-
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
+<br />
 
 `actup` is a CLI tool that scans your GitHub Actions workflow files (`.github/workflows/*.yml`) and upgrades action versions to their latest semver tags. It provides both an interactive terminal UI (TUI) powered by Bubble Tea for cherry-picking upgrades, and a non-interactive mode for CI/automation.
 
-Key features:
-- 🔍 **Automatic discovery** of workflow files in `.github/workflows/`
-- 📊 **Interactive TUI** with a checkbox list to select which actions to upgrade
-- 🚀 **Non-interactive mode** (`--no-tui`) for automated upgrades
-- 👀 **Dry-run support** (`--dry-run`) to preview changes without writing files
-- 🔒 **Atomic file edits** via temp-file + rename to prevent corruption
-- 🏷️ **Semver-aware** — fetches and sorts tags by semantic versioning
-- ⚡ **Concurrent API requests** with built-in rate-limiting and caching
+## Features
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+- **Automatic discovery** of workflow files in `.github/workflows/`
+- **Interactive TUI** with a checkbox list to select which actions to upgrade
+- **Non-interactive mode** (`--no-tui`) for automated upgrades
+- **Dry-run support** (`--dry-run`) to preview changes without writing files
+- **Atomic file edits** via temp-file + rename to prevent corruption
+- **Semver-aware** — fetches and sorts tags by semantic versioning
+- **Concurrent API requests** with built-in rate-limiting and caching
 
+## Demo
 
+[![asciicast](https://asciinema.org/a/MKNN1peBjDuV1Ujb.svg)](https://asciinema.org/a/MKNN1peBjDuV1Ujb)
 
-### Built With
+## Table of Contents
 
-* [![Go][Go-shield]][Go-url]
-* [![Cobra][Cobra-shield]][Cobra-url]
-* [![Bubble Tea][BubbleTea-shield]][BubbleTea-url]
-* [![go-github][go-github-shield]][go-github-url]
+- [Demo](#demo)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+## Installation
 
+### Package managers
 
-
-<!-- GETTING STARTED -->
-## Getting Started
-
-To get a local copy up and running follow these simple steps.
-
-### Prerequisites
-
-You need Go installed on your machine. The project builds with Go 1.22 or later.
-
-* Go
-  ```sh
-  # macOS
-  brew install go
-
-  # Ubuntu/Debian
-  sudo apt install golang-go
-
-  # Or download from https://go.dev/dl/
-  ```
-
-### Installation
-
-#### Option 1: Install via `go install`
-
+**go install:**
 ```sh
 go install github.com/lynicis/actup@latest
 ```
 
-#### Option 2: Build from source
-
-1. Clone the repo
-   ```sh
-   git clone https://github.com/lynicis/actup.git
-   cd actup
-   ```
-2. Build the binary
-   ```sh
-   make build
-   ```
-3. (Optional) Install to your `$GOPATH/bin`
-   ```sh
-   make install
-   ```
-
-#### Option 3: Homebrew (macOS & Linux)
-
+**Homebrew (macOS & Linux):**
 ```sh
 brew tap lynicis/tap
 brew install actup
 ```
 
-To upgrade:
-```sh
-brew upgrade actup
+**Scoop (Windows):**
+```powershell
+scoop bucket add actup https://github.com/lynicis/scoop-bucket.git
+scoop install actup
 ```
 
-#### Option 4: Debian / Ubuntu (apt)
-
-Download the latest `.deb` from the [Releases](https://github.com/lynicis/actup/releases) page and install it:
-
+**Debian / Ubuntu:**
 ```sh
 curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.deb
 sudo dpkg -i actup_latest_linux_amd64.deb
 ```
 
-> Replace `amd64` with `arm64` if you're on an ARM machine.
-
-#### Option 5: Fedora / RHEL / CentOS (dnf / yum)
-
-Download the latest `.rpm` from the [Releases](https://github.com/lynicis/actup/releases) page and install it:
-
+**Fedora / RHEL / CentOS:**
 ```sh
 curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.rpm
 sudo rpm -i actup_latest_linux_amd64.rpm
@@ -166,27 +82,21 @@ sudo rpm -i actup_latest_linux_amd64.rpm
 
 > Replace `amd64` with `arm64` if you're on an ARM machine.
 
-#### Option 6: Scoop (Windows)
+### Build from source
 
-```powershell
-scoop bucket add actup https://github.com/lynicis/scoop-bucket.git
-scoop install actup
+Requires Go 1.22 or later.
+
+```sh
+git clone https://github.com/lynicis/actup.git
+cd actup
+make build
+make install   # optional, installs to $GOPATH/bin
 ```
 
-To upgrade:
-```powershell
-scoop update actup
-```
-
-#### Option 7: Download a release manually
+### Manual binary
 
 Grab a pre-built binary for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- USAGE EXAMPLES -->
 ## Usage
 
 Run `actup` from the root of any repository containing GitHub Actions workflows:
@@ -235,11 +145,6 @@ actup
   [space] toggle  [a] all  [n] none  [enter] apply  [q] quit
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ROADMAP -->
 ## Roadmap
 
 - [x] Interactive TUI with checklist selection
@@ -252,19 +157,9 @@ actup
 - [ ] Integration with `dependabot`-style grouped updates
 - [ ] Pre-upgrade hooks / custom validation
 
-See the [open issues](https://github.com/lynicis/actup/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/lynicis/actup/issues) for a full list of proposed features and known issues.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTRIBUTING -->
 ## Contributing
-
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
@@ -279,59 +174,14 @@ make test
 make lint
 ```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- LICENSE -->
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- CONTACT -->
-## Contact
-
-Project Link: [https://github.com/lynicis/actup](https://github.com/lynicis/actup)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* [Bubble Tea](https://github.com/charmbracelet/bubbletea) — the TUI framework that powers the interactive interface
-* [Cobra](https://github.com/spf13/cobra) — CLI framework for Go
-* [go-github](https://github.com/google/go-github) — GitHub API client library
-* [Best-README-Template](https://github.com/othneildrew/Best-README-Template) — README template inspiration
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) — the TUI framework that powers the interactive interface
+- [Cobra](https://github.com/spf13/cobra) — CLI framework for Go
+- [go-github](https://github.com/google/go-github) — GitHub API client library
 
 
-
-<!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/lynicis/actup.svg?style=for-the-badge
-[contributors-url]: https://github.com/lynicis/actup/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/lynicis/actup.svg?style=for-the-badge
-[forks-url]: https://github.com/lynicis/actup/network/members
-[stars-shield]: https://img.shields.io/github/stars/lynicis/actup.svg?style=for-the-badge
-[stars-url]: https://github.com/lynicis/actup/stargazers
-[issues-shield]: https://img.shields.io/github/issues/lynicis/actup.svg?style=for-the-badge
-[issues-url]: https://github.com/lynicis/actup/issues
-[go-shield]: https://img.shields.io/github/go-mod/go-version/lynicis/actup?style=for-the-badge
-[go-url]: https://go.dev/
-[license-shield]: https://img.shields.io/github/license/lynicis/actup.svg?style=for-the-badge
-[license-url]: https://github.com/lynicis/actup/blob/main/LICENSE
-[Go-shield]: https://img.shields.io/badge/go-00ADD8?style=for-the-badge&logo=go&logoColor=white
-[Go-url]: https://go.dev/
-[Cobra-shield]: https://img.shields.io/badge/Cobra-3C3C3C?style=for-the-badge
-[Cobra-url]: https://github.com/spf13/cobra
-[BubbleTea-shield]: https://img.shields.io/badge/Bubble%20Tea-ff75cd?style=for-the-badge
-[BubbleTea-url]: https://github.com/charmbracelet/bubbletea
-[go-github-shield]: https://img.shields.io/badge/go--github-181717?style=for-the-badge&logo=github&logoColor=white
-[go-github-url]: https://github.com/google/go-github
