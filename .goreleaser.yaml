@@ -94,7 +94,7 @@ homebrew_casks:
       owner: lynicis
       name: homebrew-tap
       branch: main
-      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN | default .Env.GITHUB_TOKEN }}'
+      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
     commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
     homepage: https://github.com/lynicis/actup
     description: Upgrade GitHub Actions versions interactively from your terminal
@@ -113,7 +113,7 @@ scoops:
       owner: lynicis
       name: scoop-bucket
       branch: main
-      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN | default .Env.GITHUB_TOKEN }}'
+      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
     commit_msg_template: "Scoop manifest update for {{ .ProjectName }} version {{ .Tag }}"
     homepage: https://github.com/lynicis/actup
     description: Upgrade GitHub Actions versions interactively from your terminal
