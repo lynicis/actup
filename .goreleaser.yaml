@@ -38,7 +38,7 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     files:
       - README.md
       - LICENSE
@@ -74,6 +74,49 @@ release:
     name: actup
   draft: false
   prerelease: auto
+
+nfpms:
+  - id: packages
+    package_name: actup
+    vendor: Emre Sırmalı
+    homepage: https://github.com/lynicis/actup
+    maintainer: Emre Sırmalı <emresir94@gmail.com>
+    description: Upgrade GitHub Actions versions interactively from your terminal
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/local/bin
+
+homebrew_casks:
+  - name: actup
+    repository:
+      owner: lynicis
+      name: homebrew-tap
+      branch: main
+      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN | default .Env.GITHUB_TOKEN }}'
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: https://github.com/lynicis/actup
+    description: Upgrade GitHub Actions versions interactively from your terminal
+    url:
+      verified: github.com/lynicis/actup
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/actup"]
+          end
+
+scoops:
+  - name: actup
+    repository:
+      owner: lynicis
+      name: scoop-bucket
+      branch: main
+      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN | default .Env.GITHUB_TOKEN }}'
+    commit_msg_template: "Scoop manifest update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: https://github.com/lynicis/actup
+    description: Upgrade GitHub Actions versions interactively from your terminal
 
 snapshot:
   version_template: "{{ .Version }}-{{ .ShortCommit }}"

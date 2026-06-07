@@ -132,7 +132,53 @@ go install github.com/lynicis/actup@latest
    make install
    ```
 
-#### Option 3: Download a release
+#### Option 3: Homebrew (macOS & Linux)
+
+```sh
+brew tap lynicis/tap
+brew install actup
+```
+
+To upgrade:
+```sh
+brew upgrade actup
+```
+
+#### Option 4: Debian / Ubuntu (apt)
+
+Download the latest `.deb` from the [Releases](https://github.com/lynicis/actup/releases) page and install it:
+
+```sh
+curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.deb
+sudo dpkg -i actup_latest_linux_amd64.deb
+```
+
+> Replace `amd64` with `arm64` if you're on an ARM machine.
+
+#### Option 5: Fedora / RHEL / CentOS (dnf / yum)
+
+Download the latest `.rpm` from the [Releases](https://github.com/lynicis/actup/releases) page and install it:
+
+```sh
+curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.rpm
+sudo rpm -i actup_latest_linux_amd64.rpm
+```
+
+> Replace `amd64` with `arm64` if you're on an ARM machine.
+
+#### Option 6: Scoop (Windows)
+
+```powershell
+scoop bucket add actup https://github.com/lynicis/scoop-bucket.git
+scoop install actup
+```
+
+To upgrade:
+```powershell
+scoop update actup
+```
+
+#### Option 7: Download a release manually
 
 Grab a pre-built binary for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
 
