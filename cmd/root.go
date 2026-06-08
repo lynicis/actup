@@ -12,15 +12,16 @@ import (
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/scanner"
+	"github.com/lynicis/actup/internal/token"
 	"github.com/lynicis/actup/internal/tui"
 	"github.com/lynicis/actup/internal/upgrader"
 )
 
 var (
-	paths  []string
-	token  string
-	dryRun bool
-	noTUI  bool
+	paths        []string
+	githubToken  string
+	dryRun       bool
+	noTUI        bool
 )
 
 var rootCmd = &cobra.Command{
@@ -38,7 +39,7 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().StringArrayVarP(&paths, "path", "p", []string{}, "Paths to workflow files or directories")
-	rootCmd.Flags().StringVarP(&token, "token", "t", "", "GitHub PAT (fallback: GITHUB_TOKEN env var)")
+	rootCmd.Flags().StringVarP(&githubToken, "token", "t", "", "GitHub PAT (fallback: GITHUB_TOKEN env var, then gh auth token)")
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without writing files")
 	rootCmd.Flags().BoolVar(&noTUI, "no-tui", false, "Upgrade all discovered actions non-interactively")
 }
@@ -46,11 +47,12 @@ func init() {
 func run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
-	if token == "" {
-		token = os.Getenv("GITHUB_TOKEN")
+	if githubToken == "" {
+		resolver := token.NewResolver()
+		githubToken = resolver.Resolve("")
 	}
 
-	if token == "" {
+	if githubToken == "" {
 		fmt.Fprintf(os.Stderr, "\033[33m⚠ No GitHub token set — unauthenticated requests are rate-limited to 60/hour\033[0m\n\n")
 	}
 
@@ -74,15 +76,15 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if noTUI {
-		return runNoTUI(ctx, actions, token, dryRun)
+		return runNoTUI(ctx, actions, githubToken, dryRun)
 	}
 
-	return tui.Run(ctx, actions, token, dryRun)
+	return tui.Run(ctx, actions, githubToken, dryRun)
 }
 
-func runNoTUI(ctx context.Context, actions []parser.ActionRef, token string, dryRun bool) error {
+func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool) error {
 	grouped := parser.GroupActions(actions)
-	ghClient := github.NewClient(token)
+	ghClient := github.NewClient(githubToken)
 
 	type result struct {
 		key       string
