@@ -74,9 +74,17 @@ make install               # go install .
 ## CI / Release
 
 - `.github/workflows/ci.yml` — builds, tests (`-race -coverprofile`), lints (`golangci-lint --timeout=5m`), and cross-compiles on macOS/Windows.
-- `.github/workflows/release.yml` — triggered on `v*` tags, runs tests then GoReleaser. Uses `HOMEBREW_TAP_GITHUB_TOKEN` for Scoop/Homebrew publishing.
+- `.github/workflows/release.yml` — triggered on `v*` tags, runs tests then GoReleaser. Uses `HOMEBREW_TAP_GITHUB_TOKEN` for Scoop/Homebrew publishing. Sets up QEMU + Buildx and logs into `ghcr.io` for Docker image publishing.
 - `.github/workflows/update-homebrew-tap.yaml` — triggered on `v*` tags, updates the Homebrew formula in `lynicis/homebrew-tap`.
 - GoReleaser config in `.goreleaser.yaml` injects version metadata via ldflags (`main.version`, `main.commit`, `main.date`).
+
+## Docker
+
+- `Dockerfile` — multi-stage build (`golang:1.26-alpine` → `alpine:3.21`). Produces a ~12 MB image with ca-certificates.
+- `.dockerignore` — excludes `.git/`, `*.md`, `dist/`, `testdata/`, coverage artifacts.
+- GoReleaser uses `dockers_v2` to build a multi-arch manifest (linux/amd64 + linux/arm64) tagged `vX.Y.Z` and `latest` on `ghcr.io/lynicis/actup`.
+- Release workflow logs into `ghcr.io` using `GITHUB_TOKEN` (no extra secret needed).
+- Local Docker build: `docker build -t actup .`
 
 ## Dependency notes
 

@@ -97,6 +97,28 @@ make install   # optional, installs to $GOPATH/bin
 
 Grab a pre-built binary for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
 
+### Docker
+
+Images are published to `ghcr.io/lynicis/actup` for both `linux/amd64` and `linux/arm64`:
+
+```sh
+docker run ghcr.io/lynicis/actup:latest --help
+```
+
+Mount a repository to scan:
+
+```sh
+docker run -v "$PWD:/workdir" -w /workdir ghcr.io/lynicis/actup:latest
+```
+
+You can also set `GITHUB_TOKEN` for higher API rate limits:
+
+```sh
+docker run -v "$PWD:/workdir" -w /workdir \
+  -e GITHUB_TOKEN \
+  ghcr.io/lynicis/actup:latest
+```
+
 ## Usage
 
 Run `actup` from the root of any repository containing GitHub Actions workflows:

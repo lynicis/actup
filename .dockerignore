@@ -1,0 +1,11 @@
+.git/
+.gitignore
+.gitattributes
+.dockerignore
+*.md
+docs/
+testdata/
+*.test
+coverage.out
+actup
+dist/
