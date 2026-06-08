@@ -1,0 +1,75 @@
+name: Update Homebrew Tap
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-tap:
+    name: Update Homebrew Tap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Get release tag and commit SHA
+        id: get_tag_info
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          SHA=$(git rev-list -n 1 "${TAG}")
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Checkout homebrew tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: lynicis/homebrew-tap
+          path: homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Write Homebrew Formula
+        run: |
+          mkdir -p homebrew-tap/Formula
+          cat > homebrew-tap/Formula/actup.rb << 'EOF'
+          class Actup < Formula
+            desc "Upgrade GitHub Actions versions interactively from your terminal"
+            homepage "https://github.com/lynicis/actup"
+            url "https://github.com/lynicis/actup.git",
+                tag:      "${{ steps.get_tag_info.outputs.tag }}",
+                revision: "${{ steps.get_tag_info.outputs.sha }}"
+            license "MIT"
+            head "https://github.com/lynicis/actup.git", branch: "main"
+
+            depends_on "go" => :build
+
+            def install
+              ldflags = %W[
+                -s -w
+                -X main.version=#{version}
+                -X main.commit=#{stable.specs[:revision]}
+                -X main.date=#{time.iso8601}
+              ]
+              system "go", "build", *std_go_args(ldflags: ldflags), "-o", bin/"actup", "."
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/actup --version")
+            end
+          end
+          EOF
+
+      - name: Verify Ruby syntax
+        run: |
+          ruby -c homebrew-tap/Formula/actup.rb
+
+      - name: Commit and push formula
+        run: |
+          cd homebrew-tap
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Formula/actup.rb
+          git diff --staged --quiet || git commit -m "actup ${{ steps.get_tag_info.outputs.tag }}"
+          git push
