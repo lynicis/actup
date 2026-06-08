@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -8,7 +9,9 @@ import (
 	"sync"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
+	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/scanner"

@@ -1,0 +1,13 @@
+- action: "actions/checkout"
+  from_major: 2
+  to_major: 3
+  changes:
+    - type: renamed
+      input: "github_token"
+      replacement: "token"
+      message: "The `github_token` input has been renamed to `token`."
+    - type: deprecated
+      input: "app_url"
+      replacement: "url"
+      context: "repository"
+      message: "The `app_url` input is deprecated. Use `url` under the `repository` block instead."
