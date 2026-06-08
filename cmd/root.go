@@ -26,6 +26,7 @@ var (
 	dryRun      bool
 	noTUI       bool
 	semverMode  bool
+	force       bool
 )
 
 var rootCmd = &cobra.Command{
@@ -47,6 +48,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without writing files")
 	rootCmd.Flags().BoolVar(&noTUI, "no-tui", false, "Upgrade all discovered actions non-interactively")
 	rootCmd.Flags().BoolVarP(&semverMode, "semver", "s", false, "Upgrade to the latest full semver tag instead of the latest major tag (e.g. v5.3.1 instead of v5)")
+	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Upgrade actions with breaking changes without prompting in non-interactive mode")
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -81,15 +83,20 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if noTUI {
-		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode)
+		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, force)
 	}
 
 	return tui.Run(ctx, actions, githubToken, dryRun, semverMode)
 }
 
-func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool) error {
+func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, force bool) error {
 	grouped := parser.GroupActions(actions)
 	ghClient := github.NewClient(githubToken)
+
+	registry, err := breakingchanges.LoadRegistry()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Failed to load breaking-change registry: %v\n", err)
+	}
 
 	type result struct {
 		key       string
@@ -133,6 +140,10 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 	upgraded := 0
 	skipped := 0
 	apiErr := 0
+	breakingSkipped := 0
+
+	isTTY := term.IsTerminal(int(os.Stdin.Fd()))
+	reader := bufio.NewReader(os.Stdin)
 
 	for r := range resultCh {
 		acts := grouped[r.key]
@@ -148,6 +159,39 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			skipped++
 			fmt.Printf("⏭ %s: already at %s\n", r.key, r.latest)
 			continue
+		}
+
+		var bcs []breakingchanges.BreakingChange
+		if registry != nil {
+			bcs = registry.Check(r.key, current, r.latest)
+		}
+
+		if len(bcs) > 0 && !dryRun && !force {
+			fmt.Printf("\n⚠ %s: %s → %s has breaking changes:\n", r.key, current, r.latest)
+			for _, bc := range bcs {
+				fmt.Printf("  • %s\n", bc.Message)
+			}
+
+			if !isTTY {
+				fmt.Printf("  Skipping breaking-change actions. Use --force to upgrade them anyway.\n")
+				breakingSkipped++
+				continue
+			}
+
+			fmt.Print("  Upgrade anyway? [y/N] ")
+			answer, _ := reader.ReadString('\n')
+			answer = strings.TrimSpace(strings.ToLower(answer))
+			if answer != "y" && answer != "yes" {
+				breakingSkipped++
+				continue
+			}
+		}
+
+		if len(bcs) > 0 && (dryRun || force) {
+			fmt.Printf("\n⚠ %s: %s → %s has breaking changes:\n", r.key, current, r.latest)
+			for _, bc := range bcs {
+				fmt.Printf("  • %s\n", bc.Message)
+			}
 		}
 
 		upgraded++
@@ -172,7 +216,11 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 		}
 	}
 
-	fmt.Printf("\n%d actions upgraded, %d skipped (up to date), %d skipped (API error)\n", upgraded, skipped, apiErr)
+	fmt.Printf("\n%d actions upgraded, %d skipped (up to date), %d skipped (API error)", upgraded, skipped, apiErr)
+	if breakingSkipped > 0 {
+		fmt.Printf(", %d skipped (breaking changes)", breakingSkipped)
+	}
+	fmt.Println()
 	if dryRun {
 		fmt.Println("Run without --dry-run to apply changes.")
 	}

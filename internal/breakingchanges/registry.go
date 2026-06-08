@@ -70,13 +70,7 @@ func (r *Registry) Check(action string, fromVersion string, toVersion string) []
 			continue
 		}
 		for _, c := range entry.Changes {
-			results = append(results, BreakingChange{
-				Type:        c.Type,
-				Input:       c.Input,
-				Replacement: c.Replacement,
-				Context:     c.Context,
-				Message:     c.Message,
-			})
+			results = append(results, BreakingChange(c))
 		}
 	}
 	return results
