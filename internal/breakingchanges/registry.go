@@ -88,3 +88,16 @@ func parseMajor(version string) int {
 	}
 	return n
 }
+
+func ShouldUpgrade(breakingChanges []BreakingChange, force bool, dryRun bool) (upgrade bool, skip bool) {
+	if len(breakingChanges) == 0 {
+		return true, false
+	}
+	if dryRun {
+		return true, false
+	}
+	if force {
+		return true, false
+	}
+	return false, true
+}

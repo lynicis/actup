@@ -89,3 +89,34 @@ func TestLoadRegistry_ParsesYAML(t *testing.T) {
 		t.Error("expected at least one entry in seeded registry")
 	}
 }
+
+func TestShouldUpgrade_NoBreakingChanges(t *testing.T) {
+	upgrade, skip := ShouldUpgrade(nil, false, false)
+	if !upgrade || skip {
+		t.Errorf("expected upgrade=true, skip=false for no breaking changes, got upgrade=%v, skip=%v", upgrade, skip)
+	}
+}
+
+func TestShouldUpgrade_BreakingChanges_NoForce_NoDryRun(t *testing.T) {
+	bcs := []BreakingChange{{Type: "renamed", Input: "foo", Replacement: "bar"}}
+	upgrade, skip := ShouldUpgrade(bcs, false, false)
+	if upgrade || !skip {
+		t.Errorf("expected upgrade=false, skip=true for breaking changes without force/dryRun, got upgrade=%v, skip=%v", upgrade, skip)
+	}
+}
+
+func TestShouldUpgrade_BreakingChanges_Force(t *testing.T) {
+	bcs := []BreakingChange{{Type: "renamed", Input: "foo", Replacement: "bar"}}
+	upgrade, skip := ShouldUpgrade(bcs, true, false)
+	if !upgrade || skip {
+		t.Errorf("expected upgrade=true, skip=false with force=true, got upgrade=%v, skip=%v", upgrade, skip)
+	}
+}
+
+func TestShouldUpgrade_BreakingChanges_DryRun(t *testing.T) {
+	bcs := []BreakingChange{{Type: "renamed", Input: "foo", Replacement: "bar"}}
+	upgrade, skip := ShouldUpgrade(bcs, false, true)
+	if !upgrade || skip {
+		t.Errorf("expected upgrade=true, skip=false with dryRun=true, got upgrade=%v, skip=%v", upgrade, skip)
+	}
+}
