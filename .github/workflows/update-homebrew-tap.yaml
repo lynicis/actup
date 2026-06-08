@@ -1,8 +1,9 @@
 name: Update Homebrew Tap
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   update-tap:
@@ -18,7 +19,7 @@ jobs:
       - name: Get release tag and commit SHA
         id: get_tag_info
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${GITHUB_REF_NAME}"
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           SHA=$(git rev-list -n 1 "${TAG}")
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
