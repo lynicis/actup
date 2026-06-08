@@ -25,7 +25,7 @@ jobs:
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
 
       - name: Checkout homebrew tap repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: lynicis/homebrew-tap
           path: homebrew-tap

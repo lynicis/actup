@@ -183,5 +183,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 - [Bubble Tea](https://github.com/charmbracelet/bubbletea) — the TUI framework that powers the interactive interface
 - [Cobra](https://github.com/spf13/cobra) — CLI framework for Go
 - [go-github](https://github.com/google/go-github) — GitHub API client library
-
+- [go-yaml](https://github.com/goccy/go-yaml) - Yaml unmarshaller/marshaller for Go
 

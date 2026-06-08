@@ -155,7 +155,14 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			continue
 		}
 
-		if r.latest == current {
+		var needsUpgrade []parser.ActionRef
+		for _, act := range acts {
+			if act.Current != r.latest {
+				needsUpgrade = append(needsUpgrade, act)
+			}
+		}
+
+		if len(needsUpgrade) == 0 {
 			skipped++
 			fmt.Printf("⏭ %s: already at %s\n", r.key, r.latest)
 			continue
@@ -200,8 +207,9 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			fmt.Printf("would update %s: %s → %s\n", r.key, current, r.latest)
 		} else {
 			upgrades := make(map[string]upgrader.Upgrade)
-			for _, act := range acts {
-				upgrades[r.key] = upgrader.Upgrade{
+			for _, act := range needsUpgrade {
+				upgradeKey := fmt.Sprintf("%s:%s:%d", r.key, act.File, act.Line)
+				upgrades[upgradeKey] = upgrader.Upgrade{
 					Action: act,
 					NewTag: r.latest,
 				}

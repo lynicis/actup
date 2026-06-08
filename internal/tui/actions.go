@@ -121,7 +121,8 @@ func (m model) applyUpgrades() tea.Msg {
 		key := item.Owner + "/" + item.Repo
 		for _, action := range m.actions {
 			if action.Owner == item.Owner && action.Repo == item.Repo {
-				upgrades[key] = upgrader.Upgrade{
+				upgradeKey := fmt.Sprintf("%s:%s:%d", key, action.File, action.Line)
+				upgrades[upgradeKey] = upgrader.Upgrade{
 					Action: action,
 					NewTag: item.Latest,
 				}
