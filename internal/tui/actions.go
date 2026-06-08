@@ -44,7 +44,7 @@ func (m model) loadActions() tea.Msg {
 			owner := parts[0]
 			repo := parts[1]
 
-			latest, err := client.LatestSemverTag(context.Background(), owner, repo)
+			latest, err := client.LatestTag(context.Background(), owner, repo, m.semverMode)
 			resultCh <- fetchResult{key, latest, err}
 		}(key, acts)
 	}

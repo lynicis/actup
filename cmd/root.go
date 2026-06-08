@@ -18,10 +18,11 @@ import (
 )
 
 var (
-	paths        []string
-	githubToken  string
-	dryRun       bool
-	noTUI        bool
+	paths       []string
+	githubToken string
+	dryRun      bool
+	noTUI       bool
+	semverMode  bool
 )
 
 var rootCmd = &cobra.Command{
@@ -42,6 +43,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&githubToken, "token", "t", "", "GitHub PAT (fallback: GITHUB_TOKEN env var, then gh auth token)")
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without writing files")
 	rootCmd.Flags().BoolVar(&noTUI, "no-tui", false, "Upgrade all discovered actions non-interactively")
+	rootCmd.Flags().BoolVarP(&semverMode, "semver", "s", false, "Upgrade to the latest full semver tag instead of the latest major tag (e.g. v5.3.1 instead of v5)")
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -76,13 +78,13 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if noTUI {
-		return runNoTUI(ctx, actions, githubToken, dryRun)
+		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode)
 	}
 
-	return tui.Run(ctx, actions, githubToken, dryRun)
+	return tui.Run(ctx, actions, githubToken, dryRun, semverMode)
 }
 
-func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool) error {
+func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool) error {
 	grouped := parser.GroupActions(actions)
 	ghClient := github.NewClient(githubToken)
 
@@ -109,7 +111,7 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			owner := parts[0]
 			repo := parts[1]
 
-			latest, err := ghClient.LatestSemverTag(ctx, owner, repo)
+			latest, err := ghClient.LatestTag(ctx, owner, repo, semverMode)
 
 			resultCh <- result{
 				key:       key,

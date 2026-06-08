@@ -35,7 +35,7 @@ func TestResolver_Resolve_EnvVarUsedWhenFlagEmpty(t *testing.T) {
 }
 
 func TestResolver_Resolve_GhTokenUsedWhenFlagAndEnvEmpty(t *testing.T) {
-	os.Unsetenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	resolver := NewResolver()
 	resolver.run = func(name string, arg ...string) *exec.Cmd {
@@ -49,7 +49,7 @@ func TestResolver_Resolve_GhTokenUsedWhenFlagAndEnvEmpty(t *testing.T) {
 }
 
 func TestResolver_Resolve_GhNotFoundReturnsEmpty(t *testing.T) {
-	os.Unsetenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	resolver := NewResolver()
 	resolver.run = func(name string, arg ...string) *exec.Cmd {
@@ -63,7 +63,7 @@ func TestResolver_Resolve_GhNotFoundReturnsEmpty(t *testing.T) {
 }
 
 func TestResolver_Resolve_GhAuthErrorReturnsEmpty(t *testing.T) {
-	os.Unsetenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
 
 	resolver := NewResolver()
 	resolver.run = func(name string, arg ...string) *exec.Cmd {
