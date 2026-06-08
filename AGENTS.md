@@ -80,7 +80,7 @@ make install               # go install .
 
 ## Docker
 
-- `Dockerfile` — multi-stage build (`golang:1.26-alpine` → `alpine:3.21`). Produces a ~12 MB image with ca-certificates.
+- `Dockerfile` — single-stage Alpine image with pre-built binary from GoReleaser. Produces a ~19 MB image with ca-certificates.
 - `.dockerignore` — excludes `.git/`, `*.md`, `dist/`, `testdata/`, coverage artifacts.
 - GoReleaser uses `dockers_v2` to build a multi-arch manifest (linux/amd64 + linux/arm64) tagged `vX.Y.Z` and `latest` on `ghcr.io/lynicis/actup`.
 - Release workflow logs into `ghcr.io` using `GITHUB_TOKEN` (no extra secret needed).
