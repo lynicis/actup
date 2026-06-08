@@ -64,6 +64,24 @@ func (m model) updateChecklist(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
+		case "i":
+			if m.cursor >= 0 && m.cursor < len(m.items) && m.items[m.cursor].HasBreaking {
+				m.detailItem = m.cursor
+				m.state = stateDetail
+			}
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+func (m model) updateDetail(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc", "q":
+			m.state = stateChecklist
+			return m, nil
 		}
 	}
 	return m, nil

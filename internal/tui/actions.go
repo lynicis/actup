@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/upgrader"
@@ -21,6 +22,8 @@ type applyResult struct {
 func (m model) loadActions() tea.Msg {
 	client := github.NewClient(m.token)
 	grouped := parser.GroupActions(m.actions)
+
+	registry, _ := breakingchanges.LoadRegistry()
 
 	type fetchResult struct {
 		key    string
@@ -89,6 +92,12 @@ func (m model) loadActions() tea.Msg {
 		if !item.UpToDate && !item.APIError {
 			item.Selected = true
 			selectedSet[itemIndex] = true
+		}
+
+		if registry != nil && !item.UpToDate && !item.APIError {
+			bcs := registry.Check(key, item.Current, item.Latest)
+			item.BreakingChanges = bcs
+			item.HasBreaking = len(bcs) > 0
 		}
 
 		items = append(items, item)

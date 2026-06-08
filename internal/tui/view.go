@@ -51,6 +51,10 @@ func (m model) viewChecklist() string {
 			suffix = " (API error)"
 		}
 
+		if item.HasBreaking {
+			suffix += " " + amberStyle.Render("⚠ breaking changes")
+		}
+
 		if i == m.cursor {
 			style = cursorStyle
 		}
@@ -73,7 +77,29 @@ func (m model) viewChecklist() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(footerStyle.Render("  [space] toggle  [a] all  [n] none  [enter] apply  [q] quit"))
+	b.WriteString(footerStyle.Render("  [space] toggle  [a] all  [n] none  [i] info  [enter] apply  [q] quit"))
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+func (m model) viewDetail() string {
+	var b strings.Builder
+
+	item := m.items[m.detailItem]
+
+	b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Breaking Changes", item.Owner, item.Repo)))
+	b.WriteString("\n\n")
+
+	fmt.Fprintf(&b, "  %s → %s\n\n", item.Current, item.Latest)
+
+	for _, bc := range item.BreakingChanges {
+		b.WriteString(amberStyle.Render(fmt.Sprintf("  ⚠ %s", bc.Message)))
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	b.WriteString(footerStyle.Render("  [esc] back"))
 	b.WriteString("\n")
 
 	return b.String()

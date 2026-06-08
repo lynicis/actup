@@ -1,27 +1,34 @@
 package tui
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/lynicis/actup/internal/breakingchanges"
+)
 
 type state int
 
 const (
 	stateLoading state = iota
 	stateChecklist
+	stateDetail
 	stateProgress
 	stateSummary
 )
 
 // ActionItem represents a grouped action for display in the TUI.
 type ActionItem struct {
-	Owner       string
-	Repo        string
-	Current     string
-	Latest      string
-	FileCount   int
-	Selected    bool
-	UpToDate    bool
-	APIError    bool
-	APIErrorMsg string
+	Owner           string
+	Repo            string
+	Current         string
+	Latest          string
+	FileCount       int
+	Selected        bool
+	UpToDate        bool
+	APIError        bool
+	APIErrorMsg     string
+	BreakingChanges []breakingchanges.BreakingChange
+	HasBreaking     bool
 }
 
 func (a ActionItem) Title() string {

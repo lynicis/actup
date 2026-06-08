@@ -22,6 +22,7 @@ type model struct {
 	items       []ActionItem
 	selectedSet map[int]bool
 	cursor      int
+	detailItem  int
 	progress    []progressItem
 	summary     summaryResult
 	quitting    bool
@@ -70,6 +71,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateLoading(msg)
 	case stateChecklist:
 		return m.updateChecklist(msg)
+	case stateDetail:
+		return m.updateDetail(msg)
 	case stateProgress:
 		return m.updateProgress(msg)
 	case stateSummary:
@@ -84,6 +87,8 @@ func (m model) View() string {
 		return m.viewLoading()
 	case stateChecklist:
 		return m.viewChecklist()
+	case stateDetail:
+		return m.viewDetail()
 	case stateProgress:
 		return m.viewProgress()
 	case stateSummary:
