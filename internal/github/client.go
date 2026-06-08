@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -14,7 +15,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var ErrNoSemverTags = errors.New("no semver tags found for repository")
+var (
+	ErrNoSemverTags = errors.New("no semver tags found for repository")
+	majorTagRegex   = regexp.MustCompile(`^v\d+$`)
+)
 
 type Client struct {
 	client *github.Client
@@ -40,23 +44,31 @@ func NewClient(token string) *Client {
 }
 
 func (c *Client) LatestSemverTag(ctx context.Context, owner, repo string) (string, error) {
-	cacheKey := owner + "/" + repo
+	return c.LatestTag(ctx, owner, repo, true)
+}
+
+func (c *Client) LatestTag(ctx context.Context, owner, repo string, semverMode bool) (string, error) {
+	cacheKey := fmt.Sprintf("%s/%s/%v", owner, repo, semverMode)
 
 	if cached, ok := c.cache.Load(cacheKey); ok {
 		return cached.(string), nil
 	}
 
-	tagName, err := c.fetchLatestTag(ctx, owner, repo)
+	tags, err := c.fetchAllSemverTags(ctx, owner, repo)
 	if err != nil {
 		return "", err
 	}
 
-	c.cache.Store(cacheKey, tagName)
+	tagName := resolveLatestTag(tags, semverMode)
+	if tagName == "" {
+		return "", ErrNoSemverTags
+	}
 
+	c.cache.Store(cacheKey, tagName)
 	return tagName, nil
 }
 
-func (c *Client) fetchLatestTag(ctx context.Context, owner, repo string) (string, error) {
+func (c *Client) fetchAllSemverTags(ctx context.Context, owner, repo string) ([]string, error) {
 	var allTags []*github.RepositoryTag
 	page := 1
 
@@ -68,10 +80,10 @@ func (c *Client) fetchLatestTag(ctx context.Context, owner, repo string) (string
 		if err != nil {
 			if resp != nil && resp.StatusCode == http.StatusForbidden {
 				if resp.Rate.Remaining == 0 {
-					return "", fmt.Errorf("rate limit exceeded: %w", err)
+					return nil, fmt.Errorf("rate limit exceeded: %w", err)
 				}
 			}
-			return "", fmt.Errorf("list tags: %w", err)
+			return nil, fmt.Errorf("list tags: %w", err)
 		}
 
 		allTags = append(allTags, tags...)
@@ -94,21 +106,35 @@ func (c *Client) fetchLatestTag(ctx context.Context, owner, repo string) (string
 		}
 	}
 
-	if len(semverTags) == 0 {
-		return "", ErrNoSemverTags
+	return semverTags, nil
+}
+
+func resolveLatestTag(tags []string, semverMode bool) string {
+	if len(tags) == 0 {
+		return ""
 	}
 
-	sort.Slice(semverTags, func(i, j int) bool {
-		iCanonical := semverTags[i]
-		if !strings.HasPrefix(iCanonical, "v") {
-			iCanonical = "v" + iCanonical
+	sort.Slice(tags, func(i, j int) bool {
+		iC := tags[i]
+		if !strings.HasPrefix(iC, "v") {
+			iC = "v" + iC
 		}
-		jCanonical := semverTags[j]
-		if !strings.HasPrefix(jCanonical, "v") {
-			jCanonical = "v" + jCanonical
+		jC := tags[j]
+		if !strings.HasPrefix(jC, "v") {
+			jC = "v" + jC
 		}
-		return semver.Compare(iCanonical, jCanonical) > 0
+		return semver.Compare(iC, jC) > 0
 	})
 
-	return semverTags[0], nil
+	if semverMode {
+		return tags[0]
+	}
+
+	for _, tag := range tags {
+		if majorTagRegex.MatchString(tag) {
+			return tag
+		}
+	}
+
+	return tags[0]
 }
