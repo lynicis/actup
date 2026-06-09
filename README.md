@@ -141,7 +141,30 @@ actup -t $GITHUB_TOKEN
 # or
 export GITHUB_TOKEN=ghp_xxx
 actup
+
+# Pin all upgrades to major version 4
+actup --major 4
+
+# Use a config file for per-action overrides
+actup          # auto-discovers .actup.yaml in current directory
 ```
+
+### Config File (`.actup.yaml`)
+
+Place an optional `.actup.yaml` in your project root for persistent overrides:
+
+```yaml
+# Global default major version (overridden by CLI --major flag)
+major: 4
+
+# Per-action overrides / pins / exclusions
+actions:
+  actions/checkout: 4           # pin to latest v4.x.x
+  actions/setup-go: v5.3.0     # pin to exact version
+  some-org/some-action: skip   # exclude from upgrades
+```
+
+Precedence: CLI flags > config file > built-in defaults.
 
 ### Interactive TUI Controls
 
@@ -175,8 +198,8 @@ actup
 - [x] Concurrent GitHub API calls with rate-limit awareness
 - [x] Cross-platform builds (Linux, macOS, Windows)
 - [x] Pre-commit hooks for CI integration (`.pre-commit-hooks.yaml`)
-- [ ] Add support for pinning to specific major versions (`--major`)
-- [ ] Config file support (`.actup.yaml`)
+- [x] Add support for pinning to specific major versions (`--major`)
+- [x] Config file support (`.actup.yaml`)
 - [ ] Integration with `dependabot`-style grouped updates
 - [ ] Pre-upgrade hooks / custom validation
 
