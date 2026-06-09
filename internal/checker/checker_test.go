@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 )
 
@@ -13,7 +14,7 @@ type mockClient struct {
 	err  error
 }
 
-func (m *mockClient) LatestTag(ctx context.Context, owner, repo string, semverMode bool) (string, error) {
+func (m *mockClient) LatestTag(ctx context.Context, owner, repo string, mode github.TagMode) (string, error) {
 	if m.err != nil {
 		return "", m.err
 	}
@@ -22,7 +23,7 @@ func (m *mockClient) LatestTag(ctx context.Context, owner, repo string, semverMo
 
 func TestChecker_AllUpToDate(t *testing.T) {
 	mc := &mockClient{tags: map[string]string{"actions/checkout": "v4"}}
-	c := New(mc, false)
+	c := New(mc, false, 0)
 	actions := []parser.ActionRef{
 		{Owner: "actions", Repo: "checkout", Current: "v4", File: "test.yml", Line: 5},
 	}
@@ -37,7 +38,7 @@ func TestChecker_AllUpToDate(t *testing.T) {
 
 func TestChecker_Outdated(t *testing.T) {
 	mc := &mockClient{tags: map[string]string{"actions/checkout": "v5"}}
-	c := New(mc, false)
+	c := New(mc, false, 0)
 	actions := []parser.ActionRef{
 		{Owner: "actions", Repo: "checkout", Current: "v3", File: "test.yml", Line: 5},
 	}
@@ -55,7 +56,7 @@ func TestChecker_Outdated(t *testing.T) {
 
 func TestChecker_APIError(t *testing.T) {
 	mc := &mockClient{err: fmt.Errorf("API error")}
-	c := New(mc, false)
+	c := New(mc, false, 0)
 	actions := []parser.ActionRef{
 		{Owner: "actions", Repo: "checkout", Current: "v3", File: "test.yml", Line: 5},
 	}

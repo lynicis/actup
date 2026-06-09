@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 )
 
 type githubClient interface {
-	LatestTag(ctx context.Context, owner, repo string, semverMode bool) (string, error)
+	LatestTag(ctx context.Context, owner, repo string, mode github.TagMode) (string, error)
 }
 
 type OutdatedAction struct {
@@ -23,10 +24,11 @@ type OutdatedAction struct {
 type Checker struct {
 	client     githubClient
 	semverMode bool
+	majorVer   int
 }
 
-func New(client githubClient, semverMode bool) *Checker {
-	return &Checker{client: client, semverMode: semverMode}
+func New(client githubClient, semverMode bool, majorVer int) *Checker {
+	return &Checker{client: client, semverMode: semverMode, majorVer: majorVer}
 }
 
 func (c *Checker) Run(ctx context.Context, actions []parser.ActionRef) ([]OutdatedAction, error) {
@@ -36,7 +38,7 @@ func (c *Checker) Run(ctx context.Context, actions []parser.ActionRef) ([]Outdat
 	for key, refs := range groups {
 		owner := refs[0].Owner
 		repo := refs[0].Repo
-		latest, err := c.client.LatestTag(ctx, owner, repo, c.semverMode)
+		latest, err := c.client.LatestTag(ctx, owner, repo, github.TagMode{Semver: c.semverMode, Major: c.majorVer})
 		if err != nil {
 			return nil, fmt.Errorf("fetch latest for %s: %w", key, err)
 		}
