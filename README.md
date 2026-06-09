@@ -166,6 +166,24 @@ actions:
 
 Precedence: CLI flags > config file > built-in defaults.
 
+### GitHub CLI Authentication
+
+`actup` uses the [GitHub CLI (`gh`)](https://cli.github.com/) as a fallback for token resolution when no `--token` flag or `GITHUB_TOKEN` env var is set:
+
+```
+--token flag → GITHUB_TOKEN env → gh auth token
+```
+
+To set it up, authenticate `gh` once:
+
+```sh
+gh auth login
+```
+
+That's it — `actup` will automatically discover and use the token. This gives you **5,000 API requests per hour** instead of the unauthenticated limit of 60.
+
+Check [`internal/token/token.go`](internal/token/token.go) for the resolution logic.
+
 ### Interactive TUI Controls
 
 | Key | Action |
