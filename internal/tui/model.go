@@ -17,6 +17,7 @@ type model struct {
 	token       string
 	dryRun      bool
 	semverMode  bool
+	majorVer    int
 	spinner     spinner.Model
 	statusMsg   string
 	items       []ActionItem
@@ -29,7 +30,7 @@ type model struct {
 }
 
 // Run launches the interactive TUI.
-func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun bool, semverMode bool) error {
+func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int) error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
@@ -42,6 +43,7 @@ func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun b
 		token:       token,
 		dryRun:      dryRun,
 		semverMode:  semverMode,
+		majorVer:    majorVer,
 		spinner:     sp,
 		statusMsg:   "Scanning workflow files...",
 		selectedSet: make(map[int]bool),

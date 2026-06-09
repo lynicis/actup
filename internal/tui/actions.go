@@ -47,7 +47,7 @@ func (m model) loadActions() tea.Msg {
 			owner := parts[0]
 			repo := parts[1]
 
-			latest, err := client.LatestTag(context.Background(), owner, repo, m.semverMode)
+			latest, err := client.LatestTag(context.Background(), owner, repo, github.TagMode{Semver: m.semverMode, Major: m.majorVer})
 			resultCh <- fetchResult{key, latest, err}
 		}(key, acts)
 	}
