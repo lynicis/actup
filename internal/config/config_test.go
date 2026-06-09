@@ -19,7 +19,9 @@ func TestLoad_MissingFile(t *testing.T) {
 func TestLoad_ValidConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".actup.yaml")
-	os.WriteFile(path, []byte("major: 4\n"), 0644)
+	if err := os.WriteFile(path, []byte("major: 4\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -33,7 +35,9 @@ func TestLoad_ValidConfig(t *testing.T) {
 func TestLoad_WithActions(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".actup.yaml")
-	os.WriteFile(path, []byte("actions:\n  actions/checkout: \"4\"\n  actions/setup-go: skip\n"), 0644)
+	if err := os.WriteFile(path, []byte("actions:\n  actions/checkout: \"4\"\n  actions/setup-go: skip\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -50,7 +54,9 @@ func TestLoad_WithActions(t *testing.T) {
 func TestLoad_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".actup.yaml")
-	os.WriteFile(path, []byte("major: [invalid\n"), 0644)
+	if err := os.WriteFile(path, []byte("major: [invalid\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
 
 	_, err := Load(path)
 	if err == nil {
