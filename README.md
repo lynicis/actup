@@ -1,37 +1,38 @@
 # actup
 
-<p align="center">Upgrade GitHub Actions versions interactively from your terminal</p>
+<p align="center">
+  <strong>Keep your GitHub Actions up to date — interactively, safely, and fast.</strong>
+</p>
 
 <p align="center">
-  <a href="https://github.com/lynicis/actup/graphs/contributors"><img src="https://img.shields.io/github/contributors/lynicis/actup.svg?style=for-the-badge" alt="Contributors"></a>
-  <a href="https://github.com/lynicis/actup/network/members"><img src="https://img.shields.io/github/forks/lynicis/actup.svg?style=for-the-badge" alt="Forks"></a>
-  <a href="https://github.com/lynicis/actup/stargazers"><img src="https://img.shields.io/github/stars/lynicis/actup.svg?style=for-the-badge" alt="Stargazers"></a>
-  <a href="https://github.com/lynicis/actup/issues"><img src="https://img.shields.io/github/issues/lynicis/actup.svg?style=for-the-badge" alt="Issues"></a>
+  <a href="https://github.com/lynicis/actup/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/lynicis/actup/ci.yml?style=for-the-badge&label=CI" alt="CI"></a>
+  <a href="https://github.com/lynicis/actup/releases"><img src="https://img.shields.io/github/v/release/lynicis/actup?style=for-the-badge" alt="Release"></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/github/go-mod/go-version/lynicis/actup?style=for-the-badge" alt="Go Version"></a>
   <a href="https://github.com/lynicis/actup/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lynicis/actup.svg?style=for-the-badge" alt="License"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/lynicis/actup"><strong>Explore the docs &raquo;</strong></a>
-  <br />
   <a href="https://github.com/lynicis/actup/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
   &middot;
   <a href="https://github.com/lynicis/actup/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
 </p>
 
-<br />
+---
 
-`actup` is a CLI tool that scans your GitHub Actions workflow files (`.github/workflows/*.yml`) and upgrades action versions to their latest semver tags. It provides both an interactive terminal UI (TUI) powered by Bubble Tea for cherry-picking upgrades, and a non-interactive mode for CI/automation.
+`actup` scans your GitHub Actions workflows and upgrades action references to their latest versions. Pick upgrades interactively via a terminal UI, or run it non-interactively in CI. It detects known breaking changes between major versions and warns you before upgrading.
 
 ## Features
 
-- **Automatic discovery** of workflow files in `.github/workflows/`
-- **Interactive TUI** with a checkbox list to select which actions to upgrade
-- **Non-interactive mode** (`--no-tui`) for automated upgrades
-- **Dry-run support** (`--dry-run`) to preview changes without writing files
-- **Atomic file edits** via temp-file + rename to prevent corruption
-- **Semver-aware** — fetches and sorts tags by semantic versioning
-- **Concurrent API requests** with built-in rate-limiting and caching
+- **Workflow discovery** — recursively finds `.yml` / `.yaml` files under `.github/workflows/`
+- **Interactive TUI** — Bubble Tea–powered checklist with select-all, per-action toggle, and breaking-change detail view
+- **Non-interactive mode** — `--no-tui` upgrades everything; prompts on TTY for breaking changes (override with `--force`)
+- **Breaking-change detection** — embedded registry of known breaking changes between major versions
+- **Major-tag or full semver** — default resolves `v5`-style tags; `--semver` opts into `v5.3.1` pinning
+- **Dry-run** — `--dry-run` previews a diff without touching files
+- **Atomic writes** — temp-file + rename prevents partial updates
+- **Concurrent API** — up to 5 parallel GitHub requests with in-memory caching
+- **GitHub CLI fallback** — auto-discovers tokens from `gh auth token` when no env var is set
+- **Config file** — optional `.actup.yaml` for per-action pins, overrides, and exclusions
 
 ## Demo
 
@@ -39,9 +40,10 @@
 
 ## Table of Contents
 
-- [Demo](#demo)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Configuration](#configuration)
+- [Breaking Changes](#breaking-changes)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -49,42 +51,59 @@
 
 ## Installation
 
-### Package managers
+### Package Managers
 
-**go install:**
-```sh
-go install github.com/lynicis/actup@latest
-```
-
-**Homebrew (macOS & Linux):**
+**Homebrew** (macOS & Linux):
 ```sh
 brew tap lynicis/tap
 brew install actup
 ```
 
-**Scoop (Windows):**
+**Scoop** (Windows):
 ```powershell
 scoop bucket add actup https://github.com/lynicis/scoop-bucket.git
 scoop install actup
 ```
 
-**Debian / Ubuntu:**
+**Go install**:
+```sh
+go install github.com/lynicis/actup@latest
+```
+
+**Debian / Ubuntu**:
 ```sh
 curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.deb
 sudo dpkg -i actup_latest_linux_amd64.deb
 ```
 
-**Fedora / RHEL / CentOS:**
+**Fedora / RHEL / CentOS**:
 ```sh
 curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.rpm
 sudo rpm -i actup_latest_linux_amd64.rpm
 ```
 
-> Replace `amd64` with `arm64` if you're on an ARM machine.
+> Replace `amd64` with `arm64` for ARM systems.
 
-### Build from source
+### Docker
 
-Requires Go 1.22 or later.
+Images are published to `ghcr.io/lynicis/actup` for `linux/amd64` and `linux/arm64`:
+
+```sh
+# Show help
+docker run --rm ghcr.io/lynicis/actup:latest --help
+
+# Scan current directory
+docker run --rm -v "$PWD:/workdir" -w /workdir ghcr.io/lynicis/actup:latest
+
+# With GitHub token for higher rate limits
+docker run --rm -v "$PWD:/workdir" -w /workdir \
+  -e GITHUB_TOKEN \
+  ghcr.io/lynicis/actup:latest
+```
+
+### Build from Source
+
+Requires Go 1.26 or later.
 
 ```sh
 git clone https://github.com/lynicis/actup.git
@@ -93,60 +112,54 @@ make build
 make install   # optional, installs to $GOPATH/bin
 ```
 
-### Manual binary
+### Pre-built Binaries
 
-Grab a pre-built binary for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
-
-### Docker
-
-Images are published to `ghcr.io/lynicis/actup` for both `linux/amd64` and `linux/arm64`:
-
-```sh
-docker run ghcr.io/lynicis/actup:latest --help
-```
-
-Mount a repository to scan:
-
-```sh
-docker run -v "$PWD:/workdir" -w /workdir ghcr.io/lynicis/actup:latest
-```
-
-You can also set `GITHUB_TOKEN` for higher API rate limits:
-
-```sh
-docker run -v "$PWD:/workdir" -w /workdir \
-  -e GITHUB_TOKEN \
-  ghcr.io/lynicis/actup:latest
-```
+Download binaries for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
 
 ## Usage
 
-Run `actup` from the root of any repository containing GitHub Actions workflows:
+Run `actup` from the root of any repository with GitHub Actions workflows:
 
 ```sh
-# Interactive mode (default) — opens a TUI to select upgrades
+# Interactive mode (default) — opens TUI to select upgrades
 actup
 
-# Non-interactive mode — upgrades everything automatically
+# Non-interactive mode — upgrades all actions automatically
 actup --no-tui
 
 # Preview changes without writing files
 actup --dry-run
 
-# Scan custom paths
-actup -p ./my-workflows -p ./another-workflows
+# Use full semver tags instead of major tags (e.g., v5.3.1 instead of v5)
+actup --semver
 
-# Provide a GitHub token for higher rate limits
+# Force upgrades past known breaking changes (non-interactive mode)
+actup --no-tui --force
+
+# Scan custom paths
+actup -p ./my-workflows -p ./another-path
+
+# Provide a GitHub token for higher rate limits (5,000 req/hr vs 60)
 actup -t $GITHUB_TOKEN
-# or
+# or set the environment variable
 export GITHUB_TOKEN=ghp_xxx
 actup
+```
 
-# Pin all upgrades to major version 4
-actup --major 4
+## Configuration
 
-# Use a config file for per-action overrides
-actup          # auto-discovers .actup.yaml in current directory
+### GitHub Token Resolution
+
+`actup` resolves GitHub tokens in this order:
+
+1. `--token` flag
+2. `GITHUB_TOKEN` environment variable
+3. `gh auth token` from the [GitHub CLI](https://cli.github.com/)
+
+Authenticated requests get **5,000 API calls/hour** vs 60 for unauthenticated. To set up `gh`:
+
+```sh
+gh auth login
 ```
 
 ### Config File (`.actup.yaml`)
@@ -154,59 +167,26 @@ actup          # auto-discovers .actup.yaml in current directory
 Place an optional `.actup.yaml` in your project root for persistent overrides:
 
 ```yaml
-# Global default major version (overridden by CLI --major flag)
+# Global default major version (overridden by --semver flag)
 major: 4
 
-# Per-action overrides / pins / exclusions
+# Per-action overrides
 actions:
   actions/checkout: 4           # pin to latest v4.x.x
   actions/setup-go: v5.3.0     # pin to exact version
   some-org/some-action: skip   # exclude from upgrades
 ```
 
-Precedence: CLI flags > config file > built-in defaults.
+**Precedence**: CLI flags > config file > built-in defaults.
 
-### GitHub CLI Authentication
+## Breaking Changes
 
-`actup` uses the [GitHub CLI (`gh`)](https://cli.github.com/) as a fallback for token resolution when no `--token` flag or `GITHUB_TOKEN` env var is set:
+`actup` includes an embedded registry of known breaking changes between major versions. When an upgrade involves breaking changes:
 
-```
---token flag → GITHUB_TOKEN env → gh auth token
-```
+- **TUI mode**: Shows a `⚠ breaking changes` badge — press `i` for details
+- **Non-interactive mode**: Prompts for confirmation on TTY, or use `--force` to skip prompts
 
-To set it up, authenticate `gh` once:
-
-```sh
-gh auth login
-```
-
-That's it — `actup` will automatically discover and use the token. This gives you **5,000 API requests per hour** instead of the unauthenticated limit of 60.
-
-Check [`internal/token/token.go`](internal/token/token.go) for the resolution logic.
-
-### Interactive TUI Controls
-
-| Key | Action |
-|-----|--------|
-| `Space` | Toggle selection of an action |
-| `a` | Select all upgradable actions |
-| `n` | Deselect all |
-| `Enter` | Apply selected upgrades |
-| `q` / `Ctrl+C` | Quit |
-
-### Example Output
-
-```
-  actup — 5 actions found across 3 files
-
-  [✓] actions/checkout@v3       → v4 (3 files)
-  [✓] actions/setup-go@v4       → v5 (2 files)
-  [⏭] actions/cache@v4           (up to date)
-  [✓] golangci/golangci-lint-action@v3 → v6 (1 file)
-  [⚠] some-org/some-action@v1    (API error)
-
-  [space] toggle  [a] all  [n] none  [enter] apply  [q] quit
-```
+The registry lives in [`internal/breakingchanges/registry.yaml`](internal/breakingchanges/registry.yaml). Contributions welcome — if you encounter a breaking change not in the registry, please open a PR.
 
 ## Roadmap
 
@@ -215,37 +195,40 @@ Check [`internal/token/token.go`](internal/token/token.go) for the resolution lo
 - [x] Dry-run support
 - [x] Concurrent GitHub API calls with rate-limit awareness
 - [x] Cross-platform builds (Linux, macOS, Windows)
-- [x] Pre-commit hooks for CI integration (`.pre-commit-hooks.yaml`)
-- [x] Add support for pinning to specific major versions (`--major`)
+- [x] Pre-commit hooks for CI integration
+- [x] Major version pinning (`--major`)
 - [x] Config file support (`.actup.yaml`)
+- [x] Breaking-change detection with embedded registry
+- [x] Full semver tag resolution (`--semver`)
 - [ ] Integration with `dependabot`-style grouped updates
 - [ ] Pre-upgrade hooks / custom validation
 
-See the [open issues](https://github.com/lynicis/actup/issues) for a full list of proposed features and known issues.
+See [open issues](https://github.com/lynicis/actup/issues) for the full list of proposed features and known issues.
 
 ## Contributing
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'feat: add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Contributions are welcome! Here's how to get started:
 
-Please make sure your code passes the existing tests and lint checks:
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests and lint: `make test && make lint`
+5. Commit with a descriptive message (`git commit -m 'feat: add amazing feature'`)
+6. Push to your fork (`git push origin feature/amazing-feature`)
+7. Open a pull request
 
-```sh
-make test
-make lint
-```
+Please ensure your code passes existing tests and follows the project's style conventions.
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 ## Acknowledgments
 
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) — the TUI framework that powers the interactive interface
-- [Cobra](https://github.com/spf13/cobra) — CLI framework for Go
-- [go-github](https://github.com/google/go-github) — GitHub API client library
-- [go-yaml](https://github.com/goccy/go-yaml) - Yaml unmarshaller/marshaller for Go
+Built with these excellent libraries:
+
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) — TUI framework
+- [Cobra](https://github.com/spf13/cobra) — CLI framework
+- [go-github](https://github.com/google/go-github) — GitHub API client
+- [go-yaml](https://github.com/goccy/go-yaml) — YAML parser
 
