@@ -3,8 +3,10 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -13,6 +15,7 @@ import (
 
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/checker"
+	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/scanner"
@@ -87,18 +90,37 @@ func run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	cfg, _ := config.Load(config.DefaultPath())
+	if cfg != nil {
+		if majorVer == 0 && cfg.Major != nil {
+			majorVer = *cfg.Major
+		}
+	}
+
 	if checkFlag {
 		return runCheck(ctx, actions, githubToken, semverMode, majorVer)
 	}
 
 	if noTUI {
-		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force)
+		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force, cfg)
 	}
 
-	return tui.Run(ctx, actions, githubToken, dryRun, semverMode, majorVer)
+	return tui.Run(ctx, actions, githubToken, dryRun, semverMode, majorVer, cfg)
 }
 
-func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, majorVer int, force bool) error {
+func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, majorVer int, force bool, cfg *config.Config) error {
+	if cfg != nil {
+		var filtered []parser.ActionRef
+		for _, a := range actions {
+			key := a.Owner + "/" + a.Repo
+			if pin, ok := cfg.Actions[key]; ok && pin == "skip" {
+				continue
+			}
+			filtered = append(filtered, a)
+		}
+		actions = filtered
+	}
+
 	grouped := parser.GroupActions(actions)
 	ghClient := github.NewClient(githubToken)
 
@@ -130,7 +152,25 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			owner := parts[0]
 			repo := parts[1]
 
-			latest, err := ghClient.LatestTag(ctx, owner, repo, github.TagMode{Semver: semverMode, Major: majorVer})
+			resolvedMajor := majorVer
+			exactVersion := ""
+			if cfg != nil {
+				if pin, ok := cfg.Actions[key]; ok {
+					if n, err := strconv.Atoi(pin); err == nil {
+						resolvedMajor = n
+					} else if pin != "skip" {
+						exactVersion = pin
+					}
+				}
+			}
+
+			var latest string
+			var err error
+			if exactVersion != "" {
+				latest = exactVersion
+			} else {
+				latest, err = ghClient.LatestTag(ctx, owner, repo, github.TagMode{Semver: semverMode, Major: resolvedMajor})
+			}
 
 			resultCh <- result{
 				key:       key,
@@ -159,6 +199,11 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 		current := acts[0].Current
 
 		if r.err != nil {
+			if errors.Is(r.err, github.ErrNoSemverTags) {
+				skipped++
+				fmt.Printf("⏭ %s: no tags found for major v%d\n", r.key, majorVer)
+				continue
+			}
 			apiErr++
 			fmt.Printf("⚠ %s: API error (%s)\n", r.key, r.err)
 			continue
