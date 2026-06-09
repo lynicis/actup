@@ -174,6 +174,7 @@ actup
 - [x] Dry-run support
 - [x] Concurrent GitHub API calls with rate-limit awareness
 - [x] Cross-platform builds (Linux, macOS, Windows)
+- [x] Pre-commit hooks for CI integration (`.pre-commit-hooks.yaml`)
 - [ ] Add support for pinning to specific major versions (`--major`)
 - [ ] Config file support (`.actup.yaml`)
 - [ ] Integration with `dependabot`-style grouped updates
