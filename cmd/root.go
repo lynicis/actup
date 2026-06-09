@@ -12,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/lynicis/actup/internal/breakingchanges"
+	"github.com/lynicis/actup/internal/checker"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/scanner"
@@ -27,6 +28,7 @@ var (
 	noTUI       bool
 	semverMode  bool
 	force       bool
+	checkFlag   bool
 )
 
 var rootCmd = &cobra.Command{
@@ -49,6 +51,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&noTUI, "no-tui", false, "Upgrade all discovered actions non-interactively")
 	rootCmd.Flags().BoolVarP(&semverMode, "semver", "s", false, "Upgrade to the latest full semver tag instead of the latest major tag (e.g. v5.3.1 instead of v5)")
 	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Upgrade actions with breaking changes without prompting in non-interactive mode")
+	rootCmd.Flags().BoolVar(&checkFlag, "check", false, "Check for outdated actions and exit non-zero if found (implies --no-tui)")
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -80,6 +83,10 @@ func run(cmd *cobra.Command, args []string) error {
 	if len(actions) == 0 {
 		fmt.Println("No actions to upgrade found.")
 		return nil
+	}
+
+	if checkFlag {
+		return runCheck(ctx, actions, githubToken, semverMode)
 	}
 
 	if noTUI {
@@ -232,5 +239,28 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 	if dryRun {
 		fmt.Println("Run without --dry-run to apply changes.")
 	}
+	return nil
+}
+
+func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, semverMode bool) error {
+	ghClient := github.NewClient(ghToken)
+
+	c := checker.New(ghClient, semverMode)
+	outdated, err := c.Run(ctx, actions)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(2)
+	}
+
+	if len(outdated) == 0 {
+		fmt.Println("All actions are up to date.")
+		return nil
+	}
+
+	for _, oa := range outdated {
+		fmt.Printf("%s:%d: %s/%s %s → %s\n", oa.File, oa.Line, oa.Owner, oa.Repo, oa.Current, oa.Latest)
+	}
+	fmt.Printf("\n%d action(s) can be upgraded.\n", len(outdated))
+	os.Exit(1)
 	return nil
 }
