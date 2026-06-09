@@ -27,6 +27,7 @@ var (
 	dryRun      bool
 	noTUI       bool
 	semverMode  bool
+	majorVer    int
 	force       bool
 	checkFlag   bool
 )
@@ -50,6 +51,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without writing files")
 	rootCmd.Flags().BoolVar(&noTUI, "no-tui", false, "Upgrade all discovered actions non-interactively")
 	rootCmd.Flags().BoolVarP(&semverMode, "semver", "s", false, "Upgrade to the latest full semver tag instead of the latest major tag (e.g. v5.3.1 instead of v5)")
+	rootCmd.Flags().IntVarP(&majorVer, "major", "m", 0, "Pin upgrades to a specific major version (e.g. 4 for latest v4.x.x)")
 	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Upgrade actions with breaking changes without prompting in non-interactive mode")
 	rootCmd.Flags().BoolVar(&checkFlag, "check", false, "Check for outdated actions and exit non-zero if found (implies --no-tui)")
 }
@@ -86,17 +88,17 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if checkFlag {
-		return runCheck(ctx, actions, githubToken, semverMode)
+		return runCheck(ctx, actions, githubToken, semverMode, majorVer)
 	}
 
 	if noTUI {
-		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, force)
+		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force)
 	}
 
-	return tui.Run(ctx, actions, githubToken, dryRun, semverMode)
+	return tui.Run(ctx, actions, githubToken, dryRun, semverMode, majorVer)
 }
 
-func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, force bool) error {
+func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, majorVer int, force bool) error {
 	grouped := parser.GroupActions(actions)
 	ghClient := github.NewClient(githubToken)
 
@@ -128,7 +130,7 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			owner := parts[0]
 			repo := parts[1]
 
-			latest, err := ghClient.LatestTag(ctx, owner, repo, semverMode)
+			latest, err := ghClient.LatestTag(ctx, owner, repo, github.TagMode{Semver: semverMode, Major: majorVer})
 
 			resultCh <- result{
 				key:       key,
@@ -242,10 +244,10 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 	return nil
 }
 
-func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, semverMode bool) error {
+func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, semverMode bool, majorVer int) error {
 	ghClient := github.NewClient(ghToken)
 
-	c := checker.New(ghClient, semverMode)
+	c := checker.New(ghClient, semverMode, majorVer)
 	outdated, err := c.Run(ctx, actions)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
