@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/parser"
 )
 
@@ -17,6 +18,8 @@ type model struct {
 	token       string
 	dryRun      bool
 	semverMode  bool
+	majorVer    int
+	cfg         *config.Config
 	spinner     spinner.Model
 	statusMsg   string
 	items       []ActionItem
@@ -29,7 +32,7 @@ type model struct {
 }
 
 // Run launches the interactive TUI.
-func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun bool, semverMode bool) error {
+func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int, cfg *config.Config) error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 
@@ -42,6 +45,8 @@ func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun b
 		token:       token,
 		dryRun:      dryRun,
 		semverMode:  semverMode,
+		majorVer:    majorVer,
+		cfg:         cfg,
 		spinner:     sp,
 		statusMsg:   "Scanning workflow files...",
 		selectedSet: make(map[int]bool),

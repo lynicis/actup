@@ -20,6 +20,15 @@ var (
 	majorTagRegex   = regexp.MustCompile(`^v\d+$`)
 )
 
+type TagMode struct {
+	Semver bool
+	Major  int
+}
+
+func (m TagMode) cacheKey(owner, repo string) string {
+	return fmt.Sprintf("%s/%s/%v/%d", owner, repo, m.Semver, m.Major)
+}
+
 type Client struct {
 	client *github.Client
 	cache  sync.Map
@@ -44,11 +53,11 @@ func NewClient(token string) *Client {
 }
 
 func (c *Client) LatestSemverTag(ctx context.Context, owner, repo string) (string, error) {
-	return c.LatestTag(ctx, owner, repo, true)
+	return c.LatestTag(ctx, owner, repo, TagMode{Semver: true})
 }
 
-func (c *Client) LatestTag(ctx context.Context, owner, repo string, semverMode bool) (string, error) {
-	cacheKey := fmt.Sprintf("%s/%s/%v", owner, repo, semverMode)
+func (c *Client) LatestTag(ctx context.Context, owner, repo string, mode TagMode) (string, error) {
+	cacheKey := mode.cacheKey(owner, repo)
 
 	if cached, ok := c.cache.Load(cacheKey); ok {
 		return cached.(string), nil
@@ -59,7 +68,7 @@ func (c *Client) LatestTag(ctx context.Context, owner, repo string, semverMode b
 		return "", err
 	}
 
-	tagName := resolveLatestTag(tags, semverMode)
+	tagName := resolveLatestTag(tags, mode)
 	if tagName == "" {
 		return "", ErrNoSemverTags
 	}
@@ -109,7 +118,7 @@ func (c *Client) fetchAllSemverTags(ctx context.Context, owner, repo string) ([]
 	return semverTags, nil
 }
 
-func resolveLatestTag(tags []string, semverMode bool) string {
+func resolveLatestTag(tags []string, mode TagMode) string {
 	if len(tags) == 0 {
 		return ""
 	}
@@ -126,7 +135,17 @@ func resolveLatestTag(tags []string, semverMode bool) string {
 		return semver.Compare(iC, jC) > 0
 	})
 
-	if semverMode {
+	if mode.Major > 0 {
+		prefix := fmt.Sprintf("v%d.", mode.Major)
+		for _, tag := range tags {
+			if strings.HasPrefix(tag, prefix) {
+				return tag
+			}
+		}
+		return ""
+	}
+
+	if mode.Semver {
 		return tags[0]
 	}
 
