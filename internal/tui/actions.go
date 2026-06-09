@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -31,12 +32,24 @@ func (m model) loadActions() tea.Msg {
 		err    error
 	}
 
+	skipKeys := make(map[string]bool)
+	if m.cfg != nil {
+		for key, pin := range m.cfg.Actions {
+			if pin == "skip" {
+				skipKeys[key] = true
+			}
+		}
+	}
+
 	resultCh := make(chan fetchResult, len(grouped))
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 5)
 
 	for key, acts := range grouped {
+		if skipKeys[key] {
+			continue
+		}
 		wg.Add(1)
 		go func(key string, acts []parser.ActionRef) {
 			sem <- struct{}{}
@@ -47,7 +60,25 @@ func (m model) loadActions() tea.Msg {
 			owner := parts[0]
 			repo := parts[1]
 
-			latest, err := client.LatestTag(context.Background(), owner, repo, github.TagMode{Semver: m.semverMode, Major: m.majorVer})
+			resolvedMajor := m.majorVer
+			exactVersion := ""
+			if m.cfg != nil {
+				if pin, ok := m.cfg.Actions[key]; ok {
+					if n, err := strconv.Atoi(pin); err == nil {
+						resolvedMajor = n
+					} else if pin != "skip" {
+						exactVersion = pin
+					}
+				}
+			}
+
+			var latest string
+			var err error
+			if exactVersion != "" {
+				latest = exactVersion
+			} else {
+				latest, err = client.LatestTag(context.Background(), owner, repo, github.TagMode{Semver: m.semverMode, Major: resolvedMajor})
+			}
 			resultCh <- fetchResult{key, latest, err}
 		}(key, acts)
 	}
@@ -66,6 +97,9 @@ func (m model) loadActions() tea.Msg {
 	selectedSet := make(map[int]bool)
 	itemIndex := 0
 	for key, acts := range grouped {
+		if skipKeys[key] {
+			continue
+		}
 		parts := strings.SplitN(key, "/", 2)
 		owner := parts[0]
 		repo := parts[1]
