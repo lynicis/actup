@@ -261,4 +261,3 @@ Built with these excellent libraries:
 - [Cobra](https://github.com/spf13/cobra) — CLI framework
 - [go-github](https://github.com/google/go-github) — GitHub API client
 - [go-yaml](https://github.com/goccy/go-yaml) — YAML parser
-

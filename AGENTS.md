@@ -1,6 +1,6 @@
 # AGENTS.md — actup
 
-> Repo-specific guidance for AI agents working in this codebase.  
+> Repo-specific guidance for AI agents working in this codebase.
 > Every entry should answer: *"Would an agent likely miss this without help?"*
 
 ## What this is

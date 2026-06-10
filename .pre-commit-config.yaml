@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.1
+    hooks:
+      - id: go-fmt
+      - id: go-mod-tidy
+
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.1.2
+    hooks:
+      - id: golangci-lint
+
+  - repo: local
+    hooks:
+      - id: actup-check
+        name: Check GitHub Actions versions
+        description: Ensures GitHub Actions workflow files reference the latest versions.
+        entry: actup --check --no-tui
+        language: golang
+        types: [yaml]
+        pass_filenames: false
