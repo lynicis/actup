@@ -43,6 +43,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Configuration](#configuration)
+- [Pre-commit Hooks](#pre-commit-hooks)
 - [Breaking Changes](#breaking-changes)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -178,6 +179,35 @@ actions:
 ```
 
 **Precedence**: CLI flags > config file > built-in defaults.
+
+## Pre-commit Hooks
+
+Catch stale action versions before they land in a commit — two options:
+
+### `actup install-hooks` (built-in)
+
+Installs a plain `pre-commit` hook that runs `actup --check --no-tui` on every commit:
+
+```sh
+actup install-hooks              # install the hook
+actup install-hooks --dry-run    # preview before installing
+actup install-hooks -f           # overwrite existing hook
+actup install-hooks --uninstall  # remove the hook
+```
+
+### pre-commit framework
+
+Add to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/lynicis/actup
+    rev: v0.5.0
+    hooks:
+      - id: actup-check
+```
+
+> The hook runs `actup --check --no-tui` and fails the commit if any actions can be upgraded. Omit `rev` to track `main` for the latest version.
 
 ## Breaking Changes
 

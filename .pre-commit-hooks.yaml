@@ -1,14 +1,6 @@
 - id: actup-check
   name: Check GitHub Actions versions
-  description: Ensures GitHub Actions workflow files reference the latest versions. Runs on all YAML files in .github/workflows/.
-  entry: actup --check --no-tui
-  language: golang
-  types: [yaml]
-  files: ^\.github/workflows/
-  pass_filenames: false
-- id: actup-check-full
-  name: Check GitHub Actions versions (all files)
-  description: Ensures GitHub Actions workflow files reference the latest versions. Scans all YAML files in the repo.
+  description: Ensures GitHub Actions workflow files reference the latest versions.
   entry: actup --check --no-tui
   language: golang
   types: [yaml]
