@@ -84,27 +84,6 @@ nfpms:
       - rpm
     bindir: /usr/local/bin
 
-chocolateys:
-  - name: actup
-    owners: Emre Sırmalı
-    title: Actup
-    authors: lynicis
-    project_url: https://github.com/lynicis/actup
-    copyright: 2026 Emre Sırmalı
-    license_url: https://github.com/lynicis/actup/blob/main/LICENSE
-    project_source_url: https://github.com/lynicis/actup
-    docs_url: https://github.com/lynicis/actup/blob/main/README.md
-    bug_tracker_url: https://github.com/lynicis/actup/issues
-    tags: "github actions upgrade devops cli"
-    summary: "Upgrade GitHub Actions versions interactively from your terminal"
-    description: |
-      Actup scans your GitHub Actions workflow files and interactively upgrades
-      action versions. It detects known breaking changes between major versions
-      and warns before upgrading.
-    release_notes: "https://github.com/lynicis/actup/releases/tag/v{{ .Version }}"
-    api_key: "{{ .Env.CHOCOLATEY_API_KEY }}"
-    source_repo: "https://push.chocolatey.org/"
-
 scoops:
   - name: actup
     repository:
