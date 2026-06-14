@@ -3,7 +3,7 @@ name: Update Homebrew Tap
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   update-tap:
