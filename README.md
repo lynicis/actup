@@ -42,6 +42,7 @@
 
 - [Installation](#installation)
 - [Usage](#usage)
+- [AI Skill](#ai-skill)
 - [Configuration](#configuration)
 - [Pre-commit Hooks](#pre-commit-hooks)
 - [Breaking Changes](#breaking-changes)
@@ -146,6 +147,34 @@ actup -t $GITHUB_TOKEN
 export GITHUB_TOKEN=ghp_xxx
 actup
 ```
+
+## AI Skill
+
+You can also use `actup`'s workflow-upgrading logic as an Agent Skill in compatible AI coding agents (Claude Code, OpenCode, Cursor, etc.).
+
+### Install
+
+Via `gh skill` (agentskills.io):
+
+```sh
+gh skill install lynicis/actup github-actions-updater
+```
+
+Via `npx skills` (skills.sh):
+
+```sh
+npx skills add lynicis/actup --skill github-actions-updater
+```
+
+### Usage
+
+Once installed, ask your agent:
+
+> "Update my GitHub Actions"
+> "Which actions are out of date?"
+> "Bump actions in my workflows"
+
+The skill scans your `.github/workflows/*.yml` files, resolves the latest version of each action from GitHub, warns about known breaking changes, and produces a diff-style report with suggested upgrades. It does **not** edit files unless you explicitly ask.
 
 ## Configuration
 
