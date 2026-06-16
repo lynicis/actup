@@ -67,6 +67,11 @@ scoop bucket add actup https://github.com/lynicis/scoop-bucket.git
 scoop install actup
 ```
 
+**Chocolatey** (Windows):
+```powershell
+choco install actup
+```
+
 **Go install**:
 ```sh
 go install github.com/lynicis/actup@latest
