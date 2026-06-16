@@ -55,5 +55,6 @@ chocolateys:
       action versions. It detects known breaking changes between major versions
       and warns before upgrading.
     release_notes: "https://github.com/lynicis/actup/releases/tag/v{{ .Version }}"
+    url_template: "https://github.com/lynicis/actup/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     api_key: "{{ .Env.CHOCOLATEY_API_KEY }}"
     source_repo: "https://push.chocolatey.org/"
