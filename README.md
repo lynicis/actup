@@ -1,7 +1,11 @@
-# actup
+<p align="center">
+  <img src="logo.png" alt="actup logo" width="120">
+</p>
+
+<h1 align="center">actup</h1>
 
 <p align="center">
-  <strong>Keep your GitHub Actions up to date — interactively, safely, and fast.</strong>
+  Keep your GitHub Actions up to date — interactively, safely, and fast.
 </p>
 
 <p align="center">
@@ -9,6 +13,7 @@
   <a href="https://github.com/lynicis/actup/releases"><img src="https://img.shields.io/github/v/release/lynicis/actup?style=for-the-badge" alt="Release"></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/github/go-mod/go-version/lynicis/actup?style=for-the-badge" alt="Go Version"></a>
   <a href="https://github.com/lynicis/actup/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lynicis/actup.svg?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/lynicis/actup/stargazers"><img src="https://img.shields.io/github/stars/lynicis/actup?style=for-the-badge" alt="Stars"></a>
 </p>
 
 <p align="center">
@@ -20,6 +25,19 @@
 ---
 
 `actup` scans your GitHub Actions workflows and upgrades action references to their latest versions. Pick upgrades interactively via a terminal UI, or run it non-interactively in CI. It detects known breaking changes between major versions and warns you before upgrading.
+
+## Quick Start
+
+```sh
+# Interactive mode — review and select upgrades in a TUI
+actup
+
+# Non-interactive mode — upgrade everything automatically
+actup --no-tui
+
+# Preview changes without touching files
+actup --dry-run
+```
 
 ## Features
 
@@ -36,10 +54,11 @@
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/F2yUEbcAaNawOtHp.svg)](https://asciinema.org/a/F2yUEbcAaNawOtHp)
+[![asciicast](https://asciinema.org/a/BoLQP1Gt9L0CXvUR.svg?size=big)](https://asciinema.org/a/BoLQP1Gt9L0CXvUR)
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Usage](#usage)
 - [AI Skill](#ai-skill)
