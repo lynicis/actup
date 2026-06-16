@@ -2,6 +2,9 @@ version: 2
 
 project_name: actup
 
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
 before:
   hooks:
     - go mod tidy
@@ -21,11 +24,12 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
+      - -X main.date={{.CommitDate}}
 
 archives:
   - name_template: >-

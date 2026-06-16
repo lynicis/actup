@@ -77,6 +77,7 @@ make install               # go install .
 - `.github/workflows/release.yml` — triggered on `v*` tags, runs tests then GoReleaser. Uses `HOMEBREW_TAP_GITHUB_TOKEN` for Scoop/Homebrew publishing. Sets up QEMU + Buildx and logs into `ghcr.io` for Docker image publishing.
 - `.github/workflows/update-homebrew-tap.yaml` — triggered on `v*` tags, updates the Homebrew formula in `lynicis/homebrew-tap`.
 - GoReleaser config in `.goreleaser.yaml` injects version metadata via ldflags (`main.version`, `main.commit`, `main.date`).
+- **Reproducible builds**: both `.goreleaser.yaml` and `.goreleaser.choco.yml` use `metadata.mod_timestamp` and `builds.mod_timestamp` set to `{{ .CommitTimestamp }}`, and `main.date` is set from `{{ .CommitDate }}`. This ensures the Windows ZIP archive produced by the Ubuntu release job and the Windows Chocolatey job are byte-identical, so the checksum embedded in the Chocolatey package matches the GitHub release artifact.
 
 ## Docker
 
