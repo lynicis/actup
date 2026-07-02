@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-07-02
+
+### Added
+- Static code analysis job with Gosec in CI workflow.
+- Vulnerability check job with govulncheck in CI workflow.
+- Makefile targets `sec` and `vuln` for security and vulnerability scans.
+
+### Changed
+- Upgraded GitHub checkout action to `v7` across workflows.
+- Matrix builds for CI workflow on Ubuntu, macOS, and Windows.
+- Refactored CLI and TUI to use unified `github.ResolveVersion` helper.
+- Removed unused helper functions in breaking changes, config, and upgrader modules.
+
+### Removed
+- Chocolatey package publishing workflow and configuration.
+
+### Fixed
+- Fixed gosec security warnings for file permission settings and file paths.
+
 ## [1.0.0] - 2026-06-15
 
 ### Added
@@ -101,6 +120,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
+[0.7.2]: https://github.com/lynicis/actup/releases/tag/v0.7.2
 [1.0.0]: https://github.com/lynicis/actup/releases/tag/v1.0.0
 [0.7.1]: https://github.com/lynicis/actup/releases/tag/v0.7.1
 [0.7.0]: https://github.com/lynicis/actup/releases/tag/v0.7.0
