@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
@@ -25,7 +25,7 @@ jobs:
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
 
       - name: Checkout homebrew tap repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: lynicis/homebrew-tap
           path: homebrew-tap
