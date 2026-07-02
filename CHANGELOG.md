@@ -23,12 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 - Fixed gosec security warnings for file permission settings and file paths.
 
-## [1.0.0] - 2026-06-15
+## [0.7.1] - 2026-06-16
 
 ### Added
 - GitHub Actions updater AI skill (`github-actions-updater`) for compatibility with AI coding agents (Claude Code, OpenCode, Cursor, etc.). Installable via `gh skill` or `npx skills`.
-
-## [0.7.1] - 2026-06-16
 
 ### Fixed
 - Re-introduced reproducible builds by pinning `mod_timestamp` and build/commit dates in GoReleaser, ensuring the Windows ZIP checksum matches the GitHub release artifact and passes Chocolatey validation.
@@ -121,7 +119,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
 [0.7.2]: https://github.com/lynicis/actup/releases/tag/v0.7.2
-[1.0.0]: https://github.com/lynicis/actup/releases/tag/v1.0.0
 [0.7.1]: https://github.com/lynicis/actup/releases/tag/v0.7.1
 [0.7.0]: https://github.com/lynicis/actup/releases/tag/v0.7.0
 [0.6.0]: https://github.com/lynicis/actup/releases/tag/v0.6.0
