@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"fmt"
-
 	"github.com/lynicis/actup/internal/breakingchanges"
 )
 
@@ -29,24 +27,6 @@ type ActionItem struct {
 	APIErrorMsg     string
 	BreakingChanges []breakingchanges.BreakingChange
 	HasBreaking     bool
-}
-
-func (a ActionItem) Title() string {
-	return fmt.Sprintf("%s/%s", a.Owner, a.Repo)
-}
-
-func (a ActionItem) Description() string {
-	if a.UpToDate {
-		return fmt.Sprintf("%s (up to date)", a.Latest)
-	}
-	if a.APIError {
-		return "API error"
-	}
-	return fmt.Sprintf("%s → %s (%d files)", a.Current, a.Latest, a.FileCount)
-}
-
-func (a ActionItem) FilterValue() string {
-	return fmt.Sprintf("%s/%s", a.Owner, a.Repo)
 }
 
 type progressItem struct {

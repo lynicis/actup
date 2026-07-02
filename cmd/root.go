@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -148,29 +147,11 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			defer func() { <-sem }()
 			defer wg.Done()
 
-			parts := strings.SplitN(key, "/", 2)
-			owner := parts[0]
-			repo := parts[1]
-
-			resolvedMajor := majorVer
-			exactVersion := ""
+			var cfgActions map[string]string
 			if cfg != nil {
-				if pin, ok := cfg.Actions[key]; ok {
-					if n, err := strconv.Atoi(pin); err == nil {
-						resolvedMajor = n
-					} else if pin != "skip" {
-						exactVersion = pin
-					}
-				}
+				cfgActions = cfg.Actions
 			}
-
-			var latest string
-			var err error
-			if exactVersion != "" {
-				latest = exactVersion
-			} else {
-				latest, err = ghClient.LatestTag(ctx, owner, repo, github.TagMode{Semver: semverMode, Major: resolvedMajor})
-			}
+			latest, err := github.ResolveVersion(ctx, ghClient, key, semverMode, majorVer, cfgActions)
 
 			resultCh <- result{
 				key:       key,

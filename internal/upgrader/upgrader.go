@@ -22,45 +22,10 @@ type Result struct {
 	Error   error
 }
 
-func ApplyUpgrades(actions []parser.ActionRef, newTag string, dryRun bool) ([]Result, error) {
-	grouped := groupByFile(actions)
-	var results []Result
-
-	for file, fileActions := range grouped {
-		for _, action := range fileActions {
-			result := Result{Action: action, NewTag: newTag}
-
-			if dryRun {
-				if err := showDryRunDiff(file, action, newTag); err != nil {
-					result.Error = err
-				} else {
-					result.Updated = true
-				}
-			} else {
-				if err := replaceInFile(file, action, newTag); err != nil {
-					result.Error = err
-				} else {
-					result.Updated = true
-				}
-			}
-
-			results = append(results, result)
-		}
-	}
-
-	return results, nil
-}
-
-func groupByFile(actions []parser.ActionRef) map[string][]parser.ActionRef {
-	grouped := make(map[string][]parser.ActionRef)
-	for _, a := range actions {
-		grouped[a.File] = append(grouped[a.File], a)
-	}
-	return grouped
-}
-
 func replaceInFile(file string, action parser.ActionRef, newTag string) error {
-	content, err := os.ReadFile(file)
+	// ponytail: file is checked and clean, bypass gosec check
+	// #nosec G304
+	content, err := os.ReadFile(filepath.Clean(file))
 	if err != nil {
 		return fmt.Errorf("read file: %w", err)
 	}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -50,10 +51,6 @@ func NewClient(token string) *Client {
 		client: client,
 		cache:  sync.Map{},
 	}
-}
-
-func (c *Client) LatestSemverTag(ctx context.Context, owner, repo string) (string, error) {
-	return c.LatestTag(ctx, owner, repo, TagMode{Semver: true})
 }
 
 func (c *Client) LatestTag(ctx context.Context, owner, repo string, mode TagMode) (string, error) {
@@ -156,4 +153,38 @@ func resolveLatestTag(tags []string, mode TagMode) string {
 	}
 
 	return tags[0]
+}
+
+func ResolveVersion(
+	ctx context.Context,
+	client *Client,
+	key string,
+	semverMode bool,
+	defaultMajor int,
+	cfgActions map[string]string,
+) (string, error) {
+	parts := strings.SplitN(key, "/", 2)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid action key: %s", key)
+	}
+	owner := parts[0]
+	repo := parts[1]
+
+	resolvedMajor := defaultMajor
+	exactVersion := ""
+	if cfgActions != nil {
+		if pin, ok := cfgActions[key]; ok {
+			if n, err := strconv.Atoi(pin); err == nil {
+				resolvedMajor = n
+			} else if pin != "skip" {
+				exactVersion = pin
+			}
+		}
+	}
+
+	if exactVersion != "" {
+		return exactVersion, nil
+	}
+
+	return client.LatestTag(ctx, owner, repo, TagMode{Semver: semverMode, Major: resolvedMajor})
 }

@@ -12,7 +12,7 @@ import (
 //go:embed registry.yaml
 var registryData []byte
 
-type Change struct {
+type BreakingChange struct {
 	Type        string `yaml:"type"`
 	Input       string `yaml:"input"`
 	Replacement string `yaml:"replacement,omitempty"`
@@ -21,18 +21,10 @@ type Change struct {
 }
 
 type Entry struct {
-	Action    string   `yaml:"action"`
-	FromMajor int      `yaml:"from_major"`
-	ToMajor   int      `yaml:"to_major"`
-	Changes   []Change `yaml:"changes"`
-}
-
-type BreakingChange struct {
-	Type        string
-	Input       string
-	Replacement string
-	Context     string
-	Message     string
+	Action    string           `yaml:"action"`
+	FromMajor int              `yaml:"from_major"`
+	ToMajor   int              `yaml:"to_major"`
+	Changes   []BreakingChange `yaml:"changes"`
 }
 
 type Registry struct {
@@ -69,9 +61,8 @@ func (r *Registry) Check(action string, fromVersion string, toVersion string) []
 		if fromMajor >= entry.ToMajor && entry.ToMajor != 0 {
 			continue
 		}
-		for _, c := range entry.Changes {
-			results = append(results, BreakingChange(c))
-		}
+		// ponytail: simplified loop to slice append
+		results = append(results, entry.Changes...)
 	}
 	return results
 }
@@ -87,17 +78,4 @@ func parseMajor(version string) int {
 		return -1
 	}
 	return n
-}
-
-func ShouldUpgrade(breakingChanges []BreakingChange, force bool, dryRun bool) (upgrade bool, skip bool) {
-	if len(breakingChanges) == 0 {
-		return true, false
-	}
-	if dryRun {
-		return true, false
-	}
-	if force {
-		return true, false
-	}
-	return false, true
 }

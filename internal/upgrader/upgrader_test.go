@@ -3,6 +3,7 @@ package upgrader
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/lynicis/actup/internal/parser"
@@ -26,20 +27,28 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	actions := []parser.ActionRef{
-		{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
+	upgrades := map[string]Upgrade{
+		"actions/checkout": {
+			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
+			NewTag: "v4",
+		},
 	}
 
-	results, err := ApplyUpgrades(actions, "v4", false)
+	results, err := ApplyAllUpgrades(upgrades, false)
 	if err != nil {
-		t.Fatalf("ApplyUpgrades failed: %v", err)
+		t.Fatalf("ApplyAllUpgrades failed: %v", err)
 	}
 
 	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
+		t.Fatalf("expected results for 1 file, got %d", len(results))
 	}
 
-	if !results[0].Updated {
+	fileResults := results[workflowPath]
+	if len(fileResults) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(fileResults))
+	}
+
+	if !fileResults[0].Updated {
 		t.Error("expected action to be updated")
 	}
 
@@ -49,7 +58,7 @@ jobs:
 	}
 
 	expected := "uses: actions/checkout@v4"
-	if !contains(string(updatedContent), expected) {
+	if !strings.Contains(string(updatedContent), expected) {
 		t.Errorf("expected workflow to contain %q, got:\n%s", expected, string(updatedContent))
 	}
 }
@@ -74,20 +83,28 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	actions := []parser.ActionRef{
-		{Owner: "actions", Repo: "checkout", Current: "v3", Line: 8, File: workflowPath},
+	upgrades := map[string]Upgrade{
+		"actions/checkout": {
+			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 8, File: workflowPath},
+			NewTag: "v4",
+		},
 	}
 
-	results, err := ApplyUpgrades(actions, "v4", false)
+	results, err := ApplyAllUpgrades(upgrades, false)
 	if err != nil {
-		t.Fatalf("ApplyUpgrades failed: %v", err)
+		t.Fatalf("ApplyAllUpgrades failed: %v", err)
 	}
 
 	if len(results) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(results))
+		t.Fatalf("expected results for 1 file, got %d", len(results))
 	}
 
-	if !results[0].Updated {
+	fileResults := results[workflowPath]
+	if len(fileResults) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(fileResults))
+	}
+
+	if !fileResults[0].Updated {
 		t.Error("expected action to be updated")
 	}
 
@@ -97,7 +114,7 @@ jobs:
 	}
 
 	expected := "uses: actions/checkout@v4"
-	if !contains(string(updatedContent), expected) {
+	if !strings.Contains(string(updatedContent), expected) {
 		t.Errorf("expected workflow to contain %q, got:\n%s", expected, string(updatedContent))
 	}
 }
@@ -119,13 +136,16 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	actions := []parser.ActionRef{
-		{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
+	upgrades := map[string]Upgrade{
+		"actions/checkout": {
+			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
+			NewTag: "v4",
+		},
 	}
 
-	_, err := ApplyUpgrades(actions, "v4", true)
+	_, err := ApplyAllUpgrades(upgrades, true)
 	if err != nil {
-		t.Fatalf("ApplyUpgrades dry-run failed: %v", err)
+		t.Fatalf("ApplyAllUpgrades dry-run failed: %v", err)
 	}
 
 	unchangedContent, err := os.ReadFile(workflowPath)
@@ -174,7 +194,7 @@ jobs:
 	}
 
 	expectedLine := "      - uses: actions/checkout@v4.1.0"
-	if !contains(string(updated), expectedLine) {
+	if !strings.Contains(string(updated), expectedLine) {
 		t.Errorf("expected line %q in updated content, got:\n%s", expectedLine, string(updated))
 	}
 }
@@ -216,30 +236,8 @@ jobs:
 	}
 
 	expectedLine := "        uses: actions/checkout@v4.1.0"
-	if !contains(string(updated), expectedLine) {
+	if !strings.Contains(string(updated), expectedLine) {
 		t.Errorf("expected line %q in updated content, got:\n%s", expectedLine, string(updated))
-	}
-}
-
-func TestGroupByFile(t *testing.T) {
-	actions := []parser.ActionRef{
-		{Owner: "actions", Repo: "checkout", File: "/a.yml"},
-		{Owner: "actions", Repo: "setup-go", File: "/a.yml"},
-		{Owner: "actions", Repo: "checkout", File: "/b.yml"},
-	}
-
-	grouped := groupByFile(actions)
-
-	if len(grouped) != 2 {
-		t.Errorf("expected 2 files, got %d", len(grouped))
-	}
-
-	if len(grouped["/a.yml"]) != 2 {
-		t.Errorf("expected 2 actions in /a.yml, got %d", len(grouped["/a.yml"]))
-	}
-
-	if len(grouped["/b.yml"]) != 1 {
-		t.Errorf("expected 1 action in /b.yml, got %d", len(grouped["/b.yml"]))
 	}
 }
 
@@ -286,24 +284,11 @@ jobs:
 		t.Fatalf("failed to read updated workflow: %v", err)
 	}
 
-	if !contains(string(updatedContent), "actions/checkout@v4") {
+	if !strings.Contains(string(updatedContent), "actions/checkout@v4") {
 		t.Error("checkout should be upgraded to v4")
 	}
 
-	if !contains(string(updatedContent), "actions/setup-go@v5") {
+	if !strings.Contains(string(updatedContent), "actions/setup-go@v5") {
 		t.Error("setup-go should be upgraded to v5")
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
-}
-
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

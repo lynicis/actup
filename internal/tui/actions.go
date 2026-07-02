@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -56,29 +55,11 @@ func (m model) loadActions() tea.Msg {
 			defer func() { <-sem }()
 			defer wg.Done()
 
-			parts := strings.SplitN(key, "/", 2)
-			owner := parts[0]
-			repo := parts[1]
-
-			resolvedMajor := m.majorVer
-			exactVersion := ""
+			var cfgActions map[string]string
 			if m.cfg != nil {
-				if pin, ok := m.cfg.Actions[key]; ok {
-					if n, err := strconv.Atoi(pin); err == nil {
-						resolvedMajor = n
-					} else if pin != "skip" {
-						exactVersion = pin
-					}
-				}
+				cfgActions = m.cfg.Actions
 			}
-
-			var latest string
-			var err error
-			if exactVersion != "" {
-				latest = exactVersion
-			} else {
-				latest, err = client.LatestTag(context.Background(), owner, repo, github.TagMode{Semver: m.semverMode, Major: resolvedMajor})
-			}
+			latest, err := github.ResolveVersion(context.Background(), client, key, m.semverMode, m.majorVer, cfgActions)
 			resultCh <- fetchResult{key, latest, err}
 		}(key, acts)
 	}
