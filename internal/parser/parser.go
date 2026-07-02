@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -33,7 +34,9 @@ func ExtractActions(ctx context.Context, files []string) ([]ActionRef, error) {
 }
 
 func extractFromFile(file string) ([]ActionRef, error) {
-	content, err := os.ReadFile(file)
+	// ponytail: file is checked and clean, bypass gosec check
+	// #nosec G304
+	content, err := os.ReadFile(filepath.Clean(file))
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}

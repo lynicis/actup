@@ -60,11 +60,14 @@ func installHook(repoPath string, force bool) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	// ponytail: directory must be accessible by owner, 0700 is secure and satisfies gosec G301
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return fmt.Errorf("create hooks directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, []byte(hookScript), 0755); err != nil {
+	// ponytail: hook must be executable to run, 0700 is secure but triggers G306
+	// #nosec G306
+	if err := os.WriteFile(path, []byte(hookScript), 0700); err != nil {
 		return fmt.Errorf("write hook: %w", err)
 	}
 
