@@ -89,7 +89,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	cfg, _ := config.Load(config.DefaultPath())
+	cfg, _ := config.LoadDefault()
 	if cfg != nil {
 		if majorVer == 0 && cfg.Major != nil {
 			majorVer = *cfg.Major
