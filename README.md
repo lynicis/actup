@@ -213,9 +213,11 @@ gh auth login
 
 ### Config File (`.actup.yaml`)
 
-Place an optional `.actup.yaml` in your project root for persistent overrides:
+Place an optional `.actup.yaml` in your project root for persistent overrides. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
 
 ```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/lynicis/actup/main/schema.json
+
 # Global default major version (overridden by --semver flag)
 major: 4
 

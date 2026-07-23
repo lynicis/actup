@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/lynicis/actup/main/schema.json",
+  "title": "actup configuration",
+  "description": "Configuration file for actup, the GitHub Actions upgrader.",
+  "type": "object",
+  "properties": {
+    "major": {
+      "type": "integer",
+      "description": "Global default target major version to upgrade actions to (e.g., 4)."
+    },
+    "actions": {
+      "type": "object",
+      "description": "Per-action configuration mapping action names (e.g., 'actions/checkout') to specific versions or behaviors.",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "description": "Target major version (e.g., \"4\"), exact version (e.g., \"v4.1.2\", \"master\"), or \"skip\" to ignore this action."
+          },
+          {
+            "type": "integer",
+            "description": "Target major version (e.g., 4)."
+          }
+        ]
+      },
+      "examples": [
+        {
+          "actions/checkout": "4",
+          "securego/gosec": "master",
+          "actions/setup-go": "skip"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
