@@ -1,5 +1,8 @@
-FROM alpine:3.21
-ARG TARGETARCH
+FROM alpine:3.21 AS certs
 RUN apk add --no-cache ca-certificates
-COPY linux/$TARGETARCH/actup /usr/local/bin/actup
-ENTRYPOINT ["actup"]
+
+FROM scratch
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/actup /actup
+ENTRYPOINT ["/actup"]
