@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/google/go-github/v62/github"
+	"github.com/google/go-github/v89/github"
 	"golang.org/x/mod/semver"
 	"golang.org/x/oauth2"
 )
@@ -45,7 +46,11 @@ func NewClient(token string) *Client {
 		tc = oauth2.NewClient(context.Background(), ts)
 	}
 
-	client := github.NewClient(tc)
+	client, err := github.NewClient(github.WithHTTPClient(tc))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(2)
+	}
 
 	return &Client{
 		client: client,
