@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2026-07-24
+
+### Added
+- Minimal multi-arch scratch Docker image support with GoReleaser.
+
+### Changed
+- Refactored internal packages to run concurrently using `errgroup`.
+- Pinned `securego/gosec` action to `master` in CI.
+
+### Fixed
+- Fixed config file resolution and handling of loading errors in `--check` mode.
+
+## [0.7.4] - 2026-07-23
+
+### Added
+- JSON schema for `.actup.yaml` configuration.
+- Support for both `.actup.yaml` and `.actup.yml` config file extensions.
+- Added OpenCode local MCP setup.
+
+### Changed
+- Upgraded to the latest `go-github` client.
+
 ## [0.7.3] - 2026-07-12
 
 ### Changed
@@ -126,6 +148,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
+[0.7.5]: https://github.com/lynicis/actup/releases/tag/v0.7.5
+[0.7.4]: https://github.com/lynicis/actup/releases/tag/v0.7.4
 [0.7.3]: https://github.com/lynicis/actup/releases/tag/v0.7.3
 [0.7.2]: https://github.com/lynicis/actup/releases/tag/v0.7.2
 [0.7.1]: https://github.com/lynicis/actup/releases/tag/v0.7.1
