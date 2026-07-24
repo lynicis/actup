@@ -89,7 +89,10 @@ func run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	cfg, _ := config.LoadDefault()
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Failed to load config: %v\n", err)
+	}
 	if cfg != nil {
 		if majorVer == 0 && cfg.Major != nil {
 			majorVer = *cfg.Major
@@ -97,7 +100,7 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if checkFlag {
-		return runCheck(ctx, actions, githubToken, semverMode, majorVer)
+		return runCheck(ctx, actions, githubToken, semverMode, majorVer, cfg)
 	}
 
 	if noTUI {
@@ -270,10 +273,26 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 	return nil
 }
 
-func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, semverMode bool, majorVer int) error {
+func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, semverMode bool, majorVer int, cfg *config.Config) error {
+	if cfg != nil {
+		var filtered []parser.ActionRef
+		for _, a := range actions {
+			key := a.Owner + "/" + a.Repo
+			if pin, ok := cfg.Actions[key]; ok && pin == "skip" {
+				continue
+			}
+			filtered = append(filtered, a)
+		}
+		actions = filtered
+	}
+
 	ghClient := github.NewClient(ghToken)
 
-	c := checker.New(ghClient, semverMode, majorVer)
+	var cfgActions map[string]string
+	if cfg != nil {
+		cfgActions = cfg.Actions
+	}
+	c := checker.New(ghClient, semverMode, majorVer, cfgActions)
 	outdated, err := c.Run(ctx, actions)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

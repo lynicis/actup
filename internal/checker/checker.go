@@ -3,6 +3,7 @@ package checker
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/lynicis/actup/internal/github"
@@ -27,13 +28,15 @@ type Checker struct {
 	client     githubClient
 	semverMode bool
 	majorVer   int
+	cfgActions map[string]string
 }
 
-func New(client githubClient, semverMode bool, majorVer int) *Checker {
+func New(client githubClient, semverMode bool, majorVer int, cfgActions map[string]string) *Checker {
 	return &Checker{
 		client:     client,
 		semverMode: semverMode,
 		majorVer:   majorVer,
+		cfgActions: cfgActions,
 	}
 }
 
@@ -50,9 +53,30 @@ func (c *Checker) Run(ctx context.Context, actions []parser.ActionRef) ([]Outdat
 		eg.Go(func() error {
 			owner := refs[0].Owner
 			repo := refs[0].Repo
-			latest, err := c.client.LatestTag(egCtx, owner, repo, github.TagMode{Semver: c.semverMode, Major: c.majorVer})
-			if err != nil {
-				return fmt.Errorf("fetch latest for %s: %w", key, err)
+
+			resolvedMajor := c.majorVer
+			exactVersion := ""
+			if c.cfgActions != nil {
+				if pin, ok := c.cfgActions[key]; ok {
+					if n, err := strconv.Atoi(pin); err == nil {
+						resolvedMajor = n
+					} else if pin == "skip" {
+						return nil
+					} else {
+						exactVersion = pin
+					}
+				}
+			}
+
+			var latest string
+			var err error
+			if exactVersion != "" {
+				latest = exactVersion
+			} else {
+				latest, err = c.client.LatestTag(egCtx, owner, repo, github.TagMode{Semver: c.semverMode, Major: resolvedMajor})
+				if err != nil {
+					return fmt.Errorf("fetch latest for %s: %w", key, err)
+				}
 			}
 
 			var localOutdated []OutdatedAction
