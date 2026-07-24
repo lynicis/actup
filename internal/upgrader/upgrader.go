@@ -2,12 +2,15 @@ package upgrader
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/lynicis/actup/internal/parser"
+	"golang.org/x/sync/errgroup"
 )
 
 type Upgrade struct {
@@ -91,37 +94,52 @@ func showDryRunDiff(file string, action parser.ActionRef, newTag string) error {
 
 func ApplyAllUpgrades(upgrades map[string]Upgrade, dryRun bool) (map[string][]Result, error) {
 	results := make(map[string][]Result)
+	var mu sync.Mutex
 
 	byFile := make(map[string][]Upgrade)
 	for _, u := range upgrades {
 		byFile[u.Action.File] = append(byFile[u.Action.File], u)
 	}
 
+	eg, _ := errgroup.WithContext(context.Background())
+	eg.SetLimit(5)
+
 	for file, fileUpgrades := range byFile {
-		var fileResults []Result
+		file := file
+		fileUpgrades := fileUpgrades
 
-		for _, u := range fileUpgrades {
-			result := Result{Action: u.Action, NewTag: u.NewTag}
+		eg.Go(func() error {
+			var fileResults []Result
 
-			if dryRun {
-				if err := showDryRunDiff(file, u.Action, u.NewTag); err != nil {
-					result.Error = err
+			for _, u := range fileUpgrades {
+				result := Result{Action: u.Action, NewTag: u.NewTag}
+
+				if dryRun {
+					if err := showDryRunDiff(file, u.Action, u.NewTag); err != nil {
+						result.Error = err
+					} else {
+						result.Updated = true
+					}
 				} else {
-					result.Updated = true
+					if err := replaceInFile(file, u.Action, u.NewTag); err != nil {
+						result.Error = err
+					} else {
+						result.Updated = true
+					}
 				}
-			} else {
-				if err := replaceInFile(file, u.Action, u.NewTag); err != nil {
-					result.Error = err
-				} else {
-					result.Updated = true
-				}
+
+				fileResults = append(fileResults, result)
 			}
 
-			fileResults = append(fileResults, result)
-		}
+			mu.Lock()
+			results[file] = fileResults
+			mu.Unlock()
 
-		results[file] = fileResults
+			return nil
+		})
 	}
+
+	_ = eg.Wait()
 
 	return results, nil
 }

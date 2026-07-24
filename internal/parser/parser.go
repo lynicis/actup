@@ -3,10 +3,12 @@ package parser
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 type ActionRef struct {
@@ -21,13 +23,30 @@ var usesRegex = regexp.MustCompile(`^\s*(?:-\s+)?uses:\s*(.+?)\s*$`)
 
 func ExtractActions(ctx context.Context, files []string) ([]ActionRef, error) {
 	var actions []ActionRef
+	var mu sync.Mutex
+
+	eg, _ := errgroup.WithContext(ctx)
+	eg.SetLimit(5)
 
 	for _, file := range files {
-		fileActions, err := extractFromFile(file)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", file, err)
-		}
-		actions = append(actions, fileActions...)
+		file := file // capture loop variable
+		eg.Go(func() error {
+			fileActions, err := extractFromFile(file)
+			if err != nil {
+				return fmt.Errorf("parse %s: %w", file, err)
+			}
+
+			if len(fileActions) > 0 {
+				mu.Lock()
+				actions = append(actions, fileActions...)
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	return actions, nil

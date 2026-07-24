@@ -221,3 +221,51 @@ func TestIsHex(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractActionsConcurrent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	numFiles := 15
+	var paths []string
+
+	for i := 0; i < numFiles; i++ {
+		path := filepath.Join(tmpDir, "test"+string(rune(i+'a'))+".yml")
+		content := `name: CI
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+`
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatalf("failed to write workflow: %v", err)
+		}
+		paths = append(paths, path)
+	}
+
+	actions, err := ExtractActions(t.Context(), paths)
+	if err != nil {
+		t.Fatalf("ExtractActions failed: %v", err)
+	}
+
+	if len(actions) != numFiles*2 {
+		t.Errorf("expected %d actions, got %d", numFiles*2, len(actions))
+	}
+
+	checkoutCount := 0
+	setupGoCount := 0
+	for _, a := range actions {
+		if a.Repo == "checkout" {
+			checkoutCount++
+		}
+		if a.Repo == "setup-go" {
+			setupGoCount++
+		}
+	}
+
+	if checkoutCount != numFiles || setupGoCount != numFiles {
+		t.Errorf("expected %d of each action type, got %d checkout, %d setup-go", numFiles, checkoutCount, setupGoCount)
+	}
+}

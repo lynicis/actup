@@ -292,3 +292,67 @@ jobs:
 		t.Error("setup-go should be upgraded to v5")
 	}
 }
+
+func TestApplyUpgradesConcurrent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	numFiles := 10
+	upgrades := make(map[string]Upgrade)
+	var paths []string
+
+	for i := 0; i < numFiles; i++ {
+		path := filepath.Join(tmpDir, "test"+string(rune(i+'a'))+".yml")
+		content := `name: CI
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+`
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatalf("failed to write workflow: %v", err)
+		}
+		paths = append(paths, path)
+
+		upgradeKey := "actions/checkout:" + path + ":7"
+		upgrades[upgradeKey] = Upgrade{
+			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: path},
+			NewTag: "v4",
+		}
+	}
+
+	results, err := ApplyAllUpgrades(upgrades, false)
+	if err != nil {
+		t.Fatalf("ApplyAllUpgrades failed: %v", err)
+	}
+
+	if len(results) != numFiles {
+		t.Fatalf("expected results for %d files, got %d", numFiles, len(results))
+	}
+
+	for _, path := range paths {
+		fileResults, ok := results[path]
+		if !ok {
+			t.Fatalf("missing results for file %s", path)
+		}
+
+		if len(fileResults) != 1 {
+			t.Fatalf("expected 1 result for file %s, got %d", path, len(fileResults))
+		}
+
+		if !fileResults[0].Updated {
+			t.Errorf("expected action to be updated in file %s", path)
+		}
+
+		updatedContent, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("failed to read updated workflow: %v", err)
+		}
+
+		expected := "uses: actions/checkout@v4"
+		if !strings.Contains(string(updatedContent), expected) {
+			t.Errorf("expected workflow to contain %q, got:\n%s", expected, string(updatedContent))
+		}
+	}
+}
