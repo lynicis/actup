@@ -1,39 +1,36 @@
 # Security Policy
 
-We take the security of `actup` seriously. This document outlines our policy and procedures for reporting security vulnerabilities.
+This document outlines how to report security vulnerabilities in `actup` and what to expect during our response process.
 
 ## Supported Versions
 
-Currently, we actively support and patch security issues in the following versions of `actup`:
+We actively support and patch security issues in the following versions:
 
 | Version | Supported |
 | ------- | --------- |
-| >= 1.0.x| :white_check_mark: Yes |
-| < 1.0.0 | :x: No |
+| All versions | :white_check_mark: Yes |
 
-Please upgrade to the latest stable release to ensure you have the latest security patches and bug fixes.
+Please upgrade to the latest stable release to ensure you have the latest security patches.
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in `actup`, **please do not open a public issue.** Publicly disclosing a vulnerability can expose users to risk before a patch is available.
+If you discover a security vulnerability in `actup`, **do not open a public issue.** Public disclosure puts users at risk before a patch is available.
 
-Instead, please report security issues privately:
+Instead, email your report privately to **[me@lynicis.dev](mailto:me@lynicis.dev)**.
 
-1. **Email:** Send a detailed email to **[lynicis@protonmail.com](mailto:lynicis@protonmail.com)**.
-2. **Details:** In your report, please include:
-   - A clear description of the vulnerability and its potential impact.
-   - Detailed steps to reproduce the issue (including any sample configuration files or workflows).
-   - Any tools or scripts needed to demonstrate the exploit.
-   - Your contact details for follow-up and attribution.
+Please include:
+- A description of the vulnerability and its potential impact.
+- Steps to reproduce the issue, including relevant workflow files.
+- Any tools or scripts required to demonstrate the exploit.
 
-## Our Security Response Process
+## Response Process
 
-Once we receive a vulnerability report, we will:
+When you submit a report, here is how we handle it:
 
-1. **Acknowledge:** Acknowledge receipt of your report within 48 hours.
-2. **Assess:** Investigate and verify the vulnerability. We may contact you for clarification or additional information.
-3. **Patch:** Develop a fix or mitigation. We aim to address confirmed vulnerabilities within 14 days of receipt.
-4. **Publish:** Release a patched version of `actup` and document the security advisory in the release notes.
-5. **Credit:** Attribute the discovery to you in our release notes (unless you request to remain anonymous).
+1. **Acknowledge:** We will confirm receipt within 48 hours.
+2. **Assess:** We will verify the vulnerability and follow up if we need more details.
+3. **Patch:** We aim to develop and test a fix within 14 days.
+4. **Publish:** We will release a patched version and document the security advisory.
+5. **Credit:** We will credit your discovery in our release notes unless you request anonymity.
 
-Thank you for helping keep `actup` and its users safe!
+Thank you for helping protect `actup` users.
