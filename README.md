@@ -124,7 +124,7 @@ docker run --rm -v "$PWD:/workdir" -w /workdir \
 
 ### Build from Source
 
-Requires Go 1.26 or later.
+Requires Go 1.27 or later.
 
 ```sh
 git clone https://github.com/lynicis/actup.git

@@ -54,7 +54,7 @@ make install               # go install .
 
 ## Toolchain quirks
 
-- **Go version**: `go.mod` declares `go 1.26`, CI workflows pin `go-version: '1.26'`, and the README says "Go 1.22 or later". Trust the `go.mod` and CI as the executable source of truth; the project builds fine with Go 1.26+.
+- **Go version**: `go.mod` declares `go 1.27`, CI workflows pin `go-version: '1.27'`, and the README says "Go 1.27 or later". Trust the `go.mod` and CI as the executable source of truth; the project builds fine with Go 1.27+.
 - **GoReleaser hooks**: `before.hooks` runs `go mod tidy` (not `go generate`). No `//go:generate` directives exist today.
 - **Cross-platform**: CGO is disabled (`CGO_ENABLED=0`). Builds for linux/darwin/windows amd64+arm64 (Windows arm64 excluded).
 - **Distribution**: GoReleaser also produces `.deb`/`.rpm` packages (`nfpms`) and publishes to Scoop (`lynicis/scoop-bucket`) and Homebrew (`lynicis/homebrew-tap`).
