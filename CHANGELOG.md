@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.7] - 2026-09-12
+
+### Changed
+- Flattened `internal/tui` package structure into a consolidated `tui.go` and `tui_test.go`.
+- Simplified `internal/token` package by replacing `Resolver` struct and factory with a direct `Resolve` function.
+- Simplified `internal/parser` and `internal/upgrader` to sequential execution.
+- Replaced `golang.org/x/sync` dependency with standard library concurrency primitives.
+- Cleaned up redundant code across internal packages and adopted standard library helper functions.
+
+### Removed
+- Eliminated `internal/checker` package by inlining check logic into `cmd/root.go`.
+- Removed redundant `selectedSet` state tracking and custom signal handling from `internal/tui`.
+
 ## [0.7.6] - 2026-09-10
 
 ### Changed
@@ -161,6 +174,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
+[0.7.7]: https://github.com/lynicis/actup/releases/tag/v0.7.7
 [0.7.6]: https://github.com/lynicis/actup/releases/tag/v0.7.6
 [0.7.5]: https://github.com/lynicis/actup/releases/tag/v0.7.5
 [0.7.4]: https://github.com/lynicis/actup/releases/tag/v0.7.4
