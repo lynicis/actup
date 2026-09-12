@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 )
 
 type ActionRef struct {
@@ -22,31 +20,15 @@ type ActionRef struct {
 
 var usesRegex = regexp.MustCompile(`^\s*(?:-\s+)?uses:\s*(.+?)\s*$`)
 
-func ExtractActions(ctx context.Context, files []string) ([]ActionRef, error) {
+func ExtractActions(_ context.Context, files []string) ([]ActionRef, error) {
 	var actions []ActionRef
-	var mu sync.Mutex
-
-	eg, _ := errgroup.WithContext(ctx)
-	eg.SetLimit(5)
 
 	for _, file := range files {
-		eg.Go(func() error {
-			fileActions, err := extractFromFile(file)
-			if err != nil {
-				return fmt.Errorf("parse %s: %w", file, err)
-			}
-
-			if len(fileActions) > 0 {
-				mu.Lock()
-				actions = append(actions, fileActions...)
-				mu.Unlock()
-			}
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		return nil, err
+		fileActions, err := extractFromFile(file)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", file, err)
+		}
+		actions = append(actions, fileActions...)
 	}
 
 	return actions, nil
