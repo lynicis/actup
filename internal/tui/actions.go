@@ -72,8 +72,6 @@ func (m model) loadActions() tea.Msg {
 	}
 
 	var items []ActionItem
-	selectedSet := make(map[int]bool)
-	itemIndex := 0
 	for key, acts := range grouped {
 		if skipKeys[key] {
 			continue
@@ -103,7 +101,6 @@ func (m model) loadActions() tea.Msg {
 
 		if !item.UpToDate && !item.APIError {
 			item.Selected = true
-			selectedSet[itemIndex] = true
 		}
 
 		if registry != nil && !item.UpToDate && !item.APIError {
@@ -113,20 +110,18 @@ func (m model) loadActions() tea.Msg {
 		}
 
 		items = append(items, item)
-		itemIndex++
 	}
 
 	return actionsLoadedMsg{
-		items:       items,
-		selectedSet: selectedSet,
+		items: items,
 	}
 }
 
 func (m model) applyUpgrades() tea.Msg {
 	upgrades := make(map[string]upgrader.Upgrade)
 
-	for i, item := range m.items {
-		if !m.selectedSet[i] {
+	for _, item := range m.items {
+		if !item.Selected {
 			continue
 		}
 
@@ -150,7 +145,7 @@ func (m model) applyUpgrades() tea.Msg {
 	apiErrCount := 0
 	upgradedFiles := 0
 
-	for i, item := range m.items {
+	for _, item := range m.items {
 		if item.UpToDate {
 			upToDateCount++
 			progress = append(progress, progressItem{
@@ -168,7 +163,7 @@ func (m model) applyUpgrades() tea.Msg {
 				Status: "API error",
 				Error:  fmt.Errorf("%s", item.APIErrorMsg),
 			})
-		} else if m.selectedSet[i] {
+		} else if item.Selected {
 			upgradedCount++
 			upgradedFiles += item.FileCount
 			progress = append(progress, progressItem{

@@ -9,8 +9,7 @@ import (
 
 func TestInitReturnsCommand(t *testing.T) {
 	m := model{
-		state:       stateLoading,
-		selectedSet: make(map[int]bool),
+		state: stateLoading,
 	}
 
 	cmd := m.Init()
@@ -30,8 +29,7 @@ func TestInitReturnsCommand(t *testing.T) {
 
 func TestUpdateLoadingTransitionsToChecklist(t *testing.T) {
 	m := model{
-		state:       stateLoading,
-		selectedSet: make(map[int]bool),
+		state: stateLoading,
 	}
 
 	msg := actionsLoadedMsg{
@@ -39,7 +37,6 @@ func TestUpdateLoadingTransitionsToChecklist(t *testing.T) {
 			{Owner: "actions", Repo: "checkout", Current: "v3", Latest: "v4", Selected: true},
 			{Owner: "actions", Repo: "setup-go", Current: "v4", Latest: "v5", Selected: true},
 		},
-		selectedSet: map[int]bool{0: true, 1: true},
 	}
 
 	newModel, cmd := m.Update(msg)
@@ -56,11 +53,11 @@ func TestUpdateLoadingTransitionsToChecklist(t *testing.T) {
 		t.Errorf("expected 2 items, got %d", len(updatedModel.items))
 	}
 
-	if !updatedModel.selectedSet[0] {
-		t.Error("expected selectedSet[0] to be true")
+	if !updatedModel.items[0].Selected {
+		t.Error("expected items[0].Selected to be true")
 	}
-	if !updatedModel.selectedSet[1] {
-		t.Error("expected selectedSet[1] to be true")
+	if !updatedModel.items[1].Selected {
+		t.Error("expected items[1].Selected to be true")
 	}
 
 	if cmd != nil {
@@ -70,8 +67,7 @@ func TestUpdateLoadingTransitionsToChecklist(t *testing.T) {
 
 func TestUpdateLoadingIgnoresOtherMessages(t *testing.T) {
 	m := model{
-		state:       stateLoading,
-		selectedSet: make(map[int]bool),
+		state: stateLoading,
 	}
 
 	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
@@ -91,8 +87,7 @@ func TestUpdateLoadingIgnoresOtherMessages(t *testing.T) {
 
 func TestUpdateLoadingHandlesSpinnerTick(t *testing.T) {
 	m := model{
-		state:       stateLoading,
-		selectedSet: make(map[int]bool),
+		state: stateLoading,
 	}
 
 	cmd := m.Init()
@@ -124,4 +119,29 @@ func TestUpdateLoadingHandlesSpinnerTick(t *testing.T) {
 
 	// After a spinner tick, a new tick command is typically returned
 	_ = cmd
+}
+
+func TestUpdateChecklistTogglesSelection(t *testing.T) {
+	m := model{
+		state: stateChecklist,
+		items: []ActionItem{
+			{Owner: "actions", Repo: "checkout", Selected: true},
+			{Owner: "actions", Repo: "setup-go", Selected: false},
+		},
+		cursor: 1,
+	}
+
+	// Toggle cursor item (index 1) with space
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	updated := newModel.(model)
+	if !updated.items[1].Selected {
+		t.Errorf("expected item 1 to be selected after space toggle")
+	}
+
+	// Select none with 'n'
+	newModel, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	updated = newModel.(model)
+	if updated.items[0].Selected || updated.items[1].Selected {
+		t.Errorf("expected all items to be unselected after 'n'")
+	}
 }

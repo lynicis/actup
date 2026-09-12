@@ -13,7 +13,6 @@ func (m model) updateLoading(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case actionsLoadedMsg:
 		m.items = msg.items
-		m.selectedSet = msg.selectedSet
 		m.state = stateChecklist
 		return m, nil
 	}
@@ -34,13 +33,11 @@ func (m model) updateChecklist(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for i := range m.items {
 				item := &m.items[i]
 				if !item.UpToDate && !item.APIError {
-					m.selectedSet[i] = true
 					item.Selected = true
 				}
 			}
 			return m, nil
 		case "n":
-			m.selectedSet = make(map[int]bool)
 			for i := range m.items {
 				m.items[i].Selected = false
 			}
@@ -59,8 +56,7 @@ func (m model) updateChecklist(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor >= 0 && m.cursor < len(m.items) {
 				item := &m.items[m.cursor]
 				if !item.UpToDate && !item.APIError {
-					m.selectedSet[m.cursor] = !m.selectedSet[m.cursor]
-					item.Selected = m.selectedSet[m.cursor]
+					item.Selected = !item.Selected
 				}
 			}
 			return m, nil

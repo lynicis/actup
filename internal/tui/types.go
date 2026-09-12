@@ -45,6 +45,5 @@ type summaryResult struct {
 }
 
 type actionsLoadedMsg struct {
-	items       []ActionItem
-	selectedSet map[int]bool
+	items []ActionItem
 }

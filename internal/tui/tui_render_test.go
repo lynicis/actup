@@ -22,7 +22,6 @@ func TestViewChecklistRendering(t *testing.T) {
 		actions: []parser.ActionRef{
 			{File: "ci.yml"}, {File: "release.yml"},
 		},
-		selectedSet: map[int]bool{0: true, 1: true, 2: true, 3: true, 4: true},
 	}
 
 	output := m.viewChecklist()
@@ -85,9 +84,8 @@ func TestViewChecklistCursorHighlight(t *testing.T) {
 			{Owner: "golangci", Repo: "golangci-lint-action", Current: "v9", Latest: "v9.2.1", Selected: true},
 			{Owner: "goreleaser", Repo: "goreleaser-action", Current: "v7", Latest: "v7.2.2", Selected: true},
 		},
-		actions:     []parser.ActionRef{{File: "ci.yml"}},
-		selectedSet: map[int]bool{0: true, 1: true, 2: true},
-		cursor:      1,
+		actions: []parser.ActionRef{{File: "ci.yml"}},
+		cursor:  1,
 	}
 
 	output := m.viewChecklist()

@@ -2,8 +2,6 @@ package tui
 
 import (
 	"context"
-	"os"
-	"os/signal"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,51 +11,41 @@ import (
 )
 
 type model struct {
-	state       state
-	actions     []parser.ActionRef
-	token       string
-	dryRun      bool
-	semverMode  bool
-	majorVer    int
-	cfg         *config.Config
-	spinner     spinner.Model
-	statusMsg   string
-	items       []ActionItem
-	selectedSet map[int]bool
-	cursor      int
-	detailItem  int
-	progress    []progressItem
-	summary     summaryResult
-	quitting    bool
+	state      state
+	actions    []parser.ActionRef
+	token      string
+	dryRun     bool
+	semverMode bool
+	majorVer   int
+	cfg        *config.Config
+	spinner    spinner.Model
+	statusMsg  string
+	items      []ActionItem
+	cursor     int
+	detailItem int
+	progress   []progressItem
+	summary    summaryResult
+	quitting   bool
 }
 
 // Run launches the interactive TUI.
 func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int, cfg *config.Config) error {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
-
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = normalStyle
 
 	m := model{
-		actions:     actions,
-		token:       token,
-		dryRun:      dryRun,
-		semverMode:  semverMode,
-		majorVer:    majorVer,
-		cfg:         cfg,
-		spinner:     sp,
-		statusMsg:   "Scanning workflow files...",
-		selectedSet: make(map[int]bool),
+		actions:    actions,
+		token:      token,
+		dryRun:     dryRun,
+		semverMode: semverMode,
+		majorVer:   majorVer,
+		cfg:        cfg,
+		spinner:    sp,
+		statusMsg:  "Scanning workflow files...",
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
-
-	go func() {
-		<-sigChan
-		p.Quit()
-	}()
 
 	_, err := p.Run()
 	return err
