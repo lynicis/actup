@@ -50,7 +50,7 @@ make install               # go install .
 - The `github` package has unit tests for pure logic (`resolveLatestTag`, major-tag regex) — no API calls in tests.
 - The `breakingchanges` package has 10 unit tests covering registry parsing, version checking, and decision helpers.
 - The `token` package has 5 unit tests covering the resolution chain with mocked command runners.
-- The `tui` package has both logic tests (`tui_test.go`) and render tests (`tui_render_test.go`) with an ANSI-stripping helper.
+- The `tui` package has tests in `tui_test.go` covering both state transitions and rendering with an ANSI-stripping helper.
 
 ## Toolchain quirks
 
