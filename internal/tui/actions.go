@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/github"
@@ -42,27 +42,31 @@ func (m model) loadActions() tea.Msg {
 
 	resultCh := make(chan fetchResult, len(grouped))
 
-	eg, _ := errgroup.WithContext(context.Background())
-	eg.SetLimit(5)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 5)
 
 	for key := range grouped {
 		if skipKeys[key] {
 			continue
 		}
 
-		eg.Go(func() error {
+		wg.Add(1)
+		go func(k string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
 			var cfgActions map[string]string
 			if m.cfg != nil {
 				cfgActions = m.cfg.Actions
 			}
-			latest, err := github.ResolveVersion(context.Background(), client, key, m.semverMode, m.majorVer, cfgActions)
-			resultCh <- fetchResult{key, latest, err}
-			return nil
-		})
+			latest, err := github.ResolveVersion(context.Background(), client, k, m.semverMode, m.majorVer, cfgActions)
+			resultCh <- fetchResult{k, latest, err}
+		}(key)
 	}
 
 	go func() {
-		_ = eg.Wait()
+		wg.Wait()
 		close(resultCh)
 	}()
 
