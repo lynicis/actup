@@ -62,8 +62,7 @@ func run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	if githubToken == "" {
-		resolver := token.NewResolver()
-		githubToken = resolver.Resolve("")
+		githubToken = token.Resolve("")
 	}
 
 	if githubToken == "" {

@@ -6,19 +6,9 @@ import (
 	"strings"
 )
 
-type commandRunner func(name string, arg ...string) *exec.Cmd
+var execCommand = exec.Command
 
-type Resolver struct {
-	run commandRunner
-}
-
-func NewResolver() *Resolver {
-	return &Resolver{
-		run: exec.Command,
-	}
-}
-
-func (r *Resolver) Resolve(flagValue string) string {
+func Resolve(flagValue string) string {
 	if flagValue != "" {
 		return flagValue
 	}
@@ -27,7 +17,7 @@ func (r *Resolver) Resolve(flagValue string) string {
 		return envToken
 	}
 
-	cmd := r.run("gh", "auth", "token")
+	cmd := execCommand("gh", "auth", "token")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
