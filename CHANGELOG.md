@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.6] - 2026-09-10
+
+### Changed
+- Upgraded Go version to `1.27` across CI workflows, build configurations, and documentation.
+- Managed developer tools (`golangci-lint`, `gosec`, `govulncheck`) via Go tool directive in `go.mod` and updated Makefile targets.
+
+### Removed
+- Removed obsolete `install` target from Makefile.
+- Removed legacy AI assistant configuration files and skills (`CLAUDE.md`, `.claude/skills`, `opencode.json`).
+
+### Documentation
+- Refined security policy and updated vulnerability reporting contact information in `SECURITY.md`.
+
 ## [0.7.5] - 2026-07-24
 
 ### Added
@@ -148,6 +161,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
+[0.7.6]: https://github.com/lynicis/actup/releases/tag/v0.7.6
 [0.7.5]: https://github.com/lynicis/actup/releases/tag/v0.7.5
 [0.7.4]: https://github.com/lynicis/actup/releases/tag/v0.7.4
 [0.7.3]: https://github.com/lynicis/actup/releases/tag/v0.7.3
