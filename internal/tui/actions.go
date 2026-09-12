@@ -50,8 +50,6 @@ func (m model) loadActions() tea.Msg {
 			continue
 		}
 
-		key := key // capture loop variable
-
 		eg.Go(func() error {
 			var cfgActions map[string]string
 			if m.cfg != nil {

@@ -15,11 +15,7 @@ func DiscoverWorkflows(ctx context.Context, paths []string) ([]string, error) {
 	seen := make(map[string]bool)
 
 	if len(paths) == 0 {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("get current working directory: %w", err)
-		}
-		paths = []string{filepath.Join(cwd, defaultWorkflowDir)}
+		paths = []string{defaultWorkflowDir}
 	}
 
 	for _, p := range paths {

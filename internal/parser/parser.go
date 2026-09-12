@@ -2,6 +2,7 @@ package parser
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"golang.org/x/sync/errgroup"
 	"os"
@@ -29,7 +30,6 @@ func ExtractActions(ctx context.Context, files []string) ([]ActionRef, error) {
 	eg.SetLimit(5)
 
 	for _, file := range files {
-		file := file // capture loop variable
 		eg.Go(func() error {
 			fileActions, err := extractFromFile(file)
 			if err != nil {
@@ -124,12 +124,8 @@ func parseActionRef(uses string) (*ActionRef, error) {
 }
 
 func isHex(s string) bool {
-	for _, c := range s {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
-			return false
-		}
-	}
-	return true
+	_, err := hex.DecodeString(s)
+	return err == nil
 }
 
 func GroupActions(actions []ActionRef) map[string][]ActionRef {

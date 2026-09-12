@@ -14,23 +14,15 @@ type Config struct {
 
 func LoadDefault() (*Config, error) {
 	paths := []string{".actup.yaml", ".actup.yml"}
-
 	for _, path := range paths {
-		// ponytail: file is checked and clean, bypass gosec check
-		// #nosec G304
-		data, err := os.ReadFile(filepath.Clean(path))
-		if err == nil {
-			var cfg Config
-			if err := yaml.Unmarshal(data, &cfg); err != nil {
-				return nil, err
-			}
-			return &cfg, nil
-		}
-		if !os.IsNotExist(err) {
+		cfg, err := Load(path)
+		if err != nil {
 			return nil, err
 		}
+		if cfg != nil {
+			return cfg, nil
+		}
 	}
-
 	return nil, nil
 }
 

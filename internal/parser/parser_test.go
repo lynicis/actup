@@ -170,6 +170,16 @@ func TestParseActionRef(t *testing.T) {
 	}
 }
 
+func TestParseActionRef_CommitSHASkipped(t *testing.T) {
+	ref, err := parseActionRef("actions/checkout@dae09b1f80164e2d312981ce81045e7e1f4640d2")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ref != nil {
+		t.Errorf("expected commit SHA ref to be skipped, got %+v", ref)
+	}
+}
+
 func TestGroupActions(t *testing.T) {
 	actions := []ActionRef{
 		{Owner: "actions", Repo: "checkout", Current: "v3", File: "/a.yml"},

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -125,16 +125,17 @@ func resolveLatestTag(tags []string, mode TagMode) string {
 		return ""
 	}
 
-	sort.Slice(tags, func(i, j int) bool {
-		iC := tags[i]
-		if !strings.HasPrefix(iC, "v") {
-			iC = "v" + iC
+	slices.SortFunc(tags, func(a, b string) int {
+		aC := a
+		if !strings.HasPrefix(aC, "v") {
+			aC = "v" + aC
 		}
-		jC := tags[j]
-		if !strings.HasPrefix(jC, "v") {
-			jC = "v" + jC
+		bC := b
+		if !strings.HasPrefix(bC, "v") {
+			bC = "v" + bC
 		}
-		return semver.Compare(iC, jC) > 0
+		// descending order: highest semver first
+		return semver.Compare(bC, aC)
 	})
 
 	if mode.Major > 0 {
