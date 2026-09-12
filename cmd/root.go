@@ -13,7 +13,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/lynicis/actup/internal/breakingchanges"
-	"github.com/lynicis/actup/internal/checker"
 	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
@@ -83,11 +82,6 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse workflows: %w", err)
 	}
 
-	if len(actions) == 0 {
-		fmt.Println("No actions to upgrade found.")
-		return nil
-	}
-
 	cfg, err := config.LoadDefault()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load config: %v\n", err)
@@ -96,6 +90,12 @@ func run(cmd *cobra.Command, args []string) error {
 		if majorVer == 0 && cfg.Major != nil {
 			majorVer = *cfg.Major
 		}
+	}
+
+	actions = filterSkippedActions(actions, cfg)
+	if len(actions) == 0 {
+		fmt.Println("No actions to upgrade found.")
+		return nil
 	}
 
 	if checkFlag {
@@ -109,19 +109,22 @@ func run(cmd *cobra.Command, args []string) error {
 	return tui.Run(ctx, actions, githubToken, dryRun, semverMode, majorVer, cfg)
 }
 
-func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, majorVer int, force bool, cfg *config.Config) error {
-	if cfg != nil {
-		var filtered []parser.ActionRef
-		for _, a := range actions {
-			key := a.Owner + "/" + a.Repo
-			if pin, ok := cfg.Actions[key]; ok && pin == "skip" {
-				continue
-			}
-			filtered = append(filtered, a)
-		}
-		actions = filtered
+func filterSkippedActions(actions []parser.ActionRef, cfg *config.Config) []parser.ActionRef {
+	if cfg == nil || len(cfg.Actions) == 0 {
+		return actions
 	}
+	var filtered []parser.ActionRef
+	for _, a := range actions {
+		key := a.Owner + "/" + a.Repo
+		if pin, ok := cfg.Actions[key]; ok && pin == "skip" {
+			continue
+		}
+		filtered = append(filtered, a)
+	}
+	return filtered
+}
 
+func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, majorVer int, force bool, cfg *config.Config) error {
 	grouped := parser.GroupActions(actions)
 	ghClient := github.NewClient(githubToken)
 
@@ -272,30 +275,67 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 	return nil
 }
 
-func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, semverMode bool, majorVer int, cfg *config.Config) error {
-	if cfg != nil {
-		var filtered []parser.ActionRef
-		for _, a := range actions {
-			key := a.Owner + "/" + a.Repo
-			if pin, ok := cfg.Actions[key]; ok && pin == "skip" {
-				continue
-			}
-			filtered = append(filtered, a)
-		}
-		actions = filtered
-	}
+type outdatedAction struct {
+	parser.ActionRef
+	Latest string
+}
 
+func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, semverMode bool, majorVer int, cfg *config.Config) error {
 	ghClient := github.NewClient(ghToken)
+	grouped := parser.GroupActions(actions)
 
 	var cfgActions map[string]string
 	if cfg != nil {
 		cfgActions = cfg.Actions
 	}
-	c := checker.New(ghClient, semverMode, majorVer, cfgActions)
-	outdated, err := c.Run(ctx, actions)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(2)
+
+	type checkResult struct {
+		key    string
+		latest string
+		err    error
+	}
+
+	resultCh := make(chan checkResult, len(grouped))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 5)
+
+	for key := range grouped {
+		wg.Add(1)
+		go func(k string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			latest, err := github.ResolveVersion(ctx, ghClient, k, semverMode, majorVer, cfgActions)
+			resultCh <- checkResult{key: k, latest: latest, err: err}
+		}(key)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
+	results := make(map[string]string)
+	for r := range resultCh {
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", r.err)
+			os.Exit(2)
+		}
+		results[r.key] = r.latest
+	}
+
+	var outdated []outdatedAction
+	for key, acts := range grouped {
+		latest := results[key]
+		for _, act := range acts {
+			if act.Current != latest {
+				outdated = append(outdated, outdatedAction{
+					ActionRef: act,
+					Latest:    latest,
+				})
+			}
+		}
 	}
 
 	if len(outdated) == 0 {
