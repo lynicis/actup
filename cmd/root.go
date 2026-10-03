@@ -35,9 +35,21 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "actup",
-	Short: "GitHub Actions Upgrader — upgrade action versions interactively",
-	Long:  "A CLI tool that scans GitHub Actions workflow files and upgrades action versions to their latest semver tags via a terminal TUI.",
-	RunE:  run,
+	Short: "Version manager for GitHub Actions — pin, switch, and upgrade action versions",
+	Long: `actup is a version manager for GitHub Actions, like nvm is for Node or fvm for Flutter.
+
+Run it bare to interactively upgrade actions to their latest versions via a TUI,
+or use the version-manager subcommands:
+
+  use       set an action version across all workflows (and pin it)
+  pin/unpin manage version pins in .actup.yaml
+  ls        list actions in use, their versions, and pins
+  init      bootstrap .actup.yaml from your current workflows
+  sync      apply .actup.yaml pins to all workflows
+  outdated  list actions that can be upgraded
+
+It detects known breaking changes between major versions and warns before upgrading.`,
+	RunE: run,
 }
 
 func Execute() {

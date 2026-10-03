@@ -24,16 +24,22 @@
 
 ---
 
-`actup` scans your GitHub Actions workflows and upgrades action references to their latest versions. Pick upgrades interactively via a terminal UI, or run it non-interactively in CI. It detects known breaking changes between major versions and warns you before upgrading.
+`actup` is a **version manager for GitHub Actions** — like `nvm` is for Node or `fvm` for Flutter. Set and pin the versions your workflows use, keep a `.actup.yaml` manifest as the source of truth, and upgrade to the latest versions when you're ready — interactively via a terminal UI, or non-interactively in CI. It detects known breaking changes between major versions and warns you before upgrading.
 
 ## Quick Start
 
 ```sh
-# Interactive mode — review and select upgrades in a TUI
-actup
+# Bootstrap a manifest pinning the versions your workflows already use
+actup init
 
-# Non-interactive mode — upgrade everything automatically
-actup --no-tui
+# Set an action version across every workflow (and pin it in .actup.yaml)
+actup use actions/checkout@v5
+
+# Make workflows follow the manifest after editing it
+actup sync
+
+# Upgrade everything to the latest versions — pick in a TUI
+actup
 
 # Preview changes without touching files
 actup --dry-run
@@ -41,6 +47,8 @@ actup --dry-run
 
 ## Features
 
+- **Version manager commands** — `use`, `pin`/`unpin`, `ls`, `init`, `sync`, and `outdated` give you nvm-style control over action versions
+- **Manifest as source of truth** — `.actup.yaml` declares your action versions; `sync` applies it to every workflow
 - **Workflow discovery** — recursively finds `.yml` / `.yaml` files under `.github/workflows/`
 - **Interactive TUI** — Bubble Tea–powered checklist with select-all, per-action toggle, and breaking-change detail view
 - **Non-interactive mode** — `--no-tui` upgrades everything; prompts on TTY for breaking changes (override with `--force`)
@@ -50,7 +58,6 @@ actup --dry-run
 - **Atomic writes** — temp-file + rename prevents partial updates
 - **Concurrent API** — up to 5 parallel GitHub requests with in-memory caching
 - **GitHub CLI fallback** — auto-discovers tokens from `gh auth token` when no env var is set
-- **Config file** — optional `.actup.yaml` for per-action pins, overrides, and exclusions
 
 ## Demo
 
@@ -61,6 +68,7 @@ actup --dry-run
 - [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Version Manager](#version-manager)
 - [AI Skill](#ai-skill)
 - [Configuration](#configuration)
 - [Pre-commit Hooks](#pre-commit-hooks)
@@ -167,6 +175,43 @@ export GITHUB_TOKEN=ghp_xxx
 actup
 ```
 
+## Version Manager
+
+`actup` treats `.actup.yaml` as the manifest of the action versions your repository declares — the same role `.nvmrc` plays for Node.
+
+| Command | nvm / fvm equivalent | What it does |
+|---|---|---|
+| `actup init` | `npm init` | Bootstrap `.actup.yaml` from the versions your workflows already use |
+| `actup use <action>@<ref>` | `nvm use` / `fvm use` | Set an action's version across **all** workflows and pin it in `.actup.yaml` |
+| `actup pin <action>[@<ref>]` | `nvm alias` | Record a pin in `.actup.yaml` without touching workflows |
+| `actup unpin <action>` | — | Remove a pin from `.actup.yaml` |
+| `actup sync` | `fvm install` | Apply all `.actup.yaml` pins to your workflows |
+| `actup ls` | `nvm ls` | List actions in use, their versions, and pin status (`--outdated` adds latest versions) |
+| `actup outdated` | `nvm outdated` | List actions that can be upgraded (exits non-zero if any) |
+| `actup` | `nvm upgrade` | Interactively upgrade everything to the latest versions (TUI) |
+
+### Ref resolution in `use`
+
+| Argument | Behavior |
+|---|---|
+| `@v5` | Written verbatim — the standard moving major tag |
+| `@5` | Resolved via the GitHub API to the latest tag within major v5 (e.g. `v5.3.1`) |
+| `@latest` / no `@ref` | Resolved to the latest tag (major tag, or full semver with `--semver`) |
+| `@v5.3.1`, `@master` | Written verbatim |
+
+`use` saves the pin to `.actup.yaml` by default so your manifest stays the source of truth; pass `--no-save` to only update workflows, or `--dry-run` to change nothing.
+
+### Typical workflow
+
+```sh
+actup init                        # 1. declare current versions
+actup use actions/checkout@v5     # 2. switch an action everywhere
+# 3. ...or edit .actup.yaml by hand, then apply it:
+actup sync
+actup ls --outdated               # 4. review what could be upgraded
+actup                             # 5. upgrade everything interactively
+```
+
 ## AI Skill
 
 You can also use `actup`'s workflow-upgrading logic as an Agent Skill in compatible AI coding agents (Claude Code, OpenCode, Cursor, etc.).
@@ -213,7 +258,7 @@ gh auth login
 
 ### Config File (`.actup.yaml`)
 
-Place an optional `.actup.yaml` in your project root for persistent overrides. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
+`.actup.yaml` is your action version manifest — the declared source of truth that `actup sync` applies to your workflows. `actup init` generates it, `actup use` and `actup pin` keep it up to date, and `actup --check` / `actup outdated` honor it. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/lynicis/actup/main/schema.json
@@ -221,12 +266,18 @@ Place an optional `.actup.yaml` in your project root for persistent overrides. E
 # Global default major version (overridden by --semver flag)
 major: 4
 
-# Per-action overrides
+# Per-action version pins
 actions:
-  actions/checkout: 4           # pin to latest v4.x.x
+  actions/checkout: 4           # pin to latest v4.x.x (resolved at sync/upgrade time)
   actions/setup-go: v5.3.0     # pin to exact version
   some-org/some-action: skip   # exclude from upgrades
 ```
+
+Pin semantics in `sync` and upgrade mode:
+
+- **Exact ref** (`v5`, `v5.3.1`, `master`) — applied verbatim
+- **Major number** (`4`) — resolved to the latest tag within that major via the GitHub API
+- **`skip`** — the action is excluded from upgrades and syncing
 
 **Precedence**: CLI flags > config file > built-in defaults.
 

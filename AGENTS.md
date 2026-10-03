@@ -5,18 +5,20 @@
 
 ## What this is
 
-`actup` is a Go CLI that scans GitHub Actions workflow files and upgrades action versions interactively via a TUI, or non-interactively with `--no-tui`. It detects known breaking changes between major versions and warns before upgrading.
+`actup` is a version manager for GitHub Actions (like nvm for Node, fvm for Flutter). It scans GitHub Actions workflow files to set, pin, sync, and upgrade action versions — interactively via a TUI, or non-interactively. It detects known breaking changes between major versions and warns before upgrading.
 
 ## Architecture
 
 Standard Go CLI layout using Cobra:
 
 - `main.go` → `cmd/root.go` orchestrates packages
+- `cmd/` — root command (scan + upgrade flow) plus version-manager subcommands: `use`, `pin`/`unpin`, `ls`, `sync`, `init`, `outdated` (one file each) and shared helpers in `cmd/common.go` (workflow loading, `actionSpec` parsing, ref resolution, breaking-change confirm)
 - `internal/scanner` — discovers `.yml`/`.yaml` workflow files (default: `.github/workflows/`)
 - `internal/parser` — extracts `uses:` refs; skips `./local`, `docker://`, and full SHA commits
 - `internal/github` — GitHub API client (`go-github/v62`); fetches latest tags with dual mode (major-tag or full semver) and in-memory cache
 - `internal/token` — resolves GitHub token via flag → `GITHUB_TOKEN` env → `gh auth token` CLI fallback
 - `internal/breakingchanges` — embedded YAML registry (`//go:embed registry.yaml`) for known breaking changes between major versions; uses `goccy/go-yaml` for parsing
+- `internal/config` — loads `.actup.yaml`/`.actup.yml` (manifest: `major` + per-action `actions` pins/skip); also saves it via deterministic `Render`/`Save`/`SaveDefault` (comments are not preserved; schema header is emitted; numeric-looking values are quoted)
 - `internal/tui` — Bubble Tea interactive checklist with detail view for breaking changes
 - `internal/upgrader` — atomic file edits via temp-file + rename; supports both single-tag and per-action upgrade maps
 
@@ -63,6 +65,15 @@ make install               # go install .
 
 - GitHub token resolution order: `--token` flag → `GITHUB_TOKEN` env var → `gh auth token` CLI. If all fail, the CLI warns and proceeds with unauthenticated rate limits (60 req/hr).
 - Default scan target is `.github/workflows` in the current working directory when no `--path` is given.
+- **Root flags are local, not persistent** — each subcommand re-declares the flags it needs. Do not promote root flags to `PersistentFlags()`: the `version` subcommand defines `-s/--short`, which would collide with root's `-s/--semver` and panic at runtime.
+- **Version-manager command semantics** (nvm/fvm style):
+  - `use <action>[@<ref>]` — rewrites all workflow refs to the target version and saves the pin to `.actup.yaml` by default (`--no-save` opts out, `--dry-run` writes nothing). Ref forms: `@vN` verbatim, `@N` → latest tag in major N via API, `@latest`/none → latest per tag mode, anything else verbatim.
+  - `pin`/`unpin` — edit `.actup.yaml` only; `pin` without `@ref` pins the most-used version found in workflows.
+  - `sync` (alias `install`) — applies manifest pins to workflows: exact refs verbatim, numeric majors resolved via API, `skip` ignored. Honors `--dry-run`/`--force`.
+  - `init` — bootstraps `.actup.yaml` from current workflow versions; refuses to overwrite without `--force` (which merges, preserving existing pins).
+  - `ls` — offline by default; `ls --outdated` hits the API and honors pins like `--check`.
+  - `outdated` — subcommand form of the `--check` flag; reuses `runCheck` from root.go (which calls `os.Exit(1)` when outdated entries exist).
+- Breaking-change prompts in `use`/`sync` mirror `--no-tui` behavior via `confirmBreaking` in `cmd/common.go` (proceed on dry-run/force, y/N prompt on TTY, skip otherwise).
 - `--dry-run` prints a diff-style preview without writing files.
 - `--no-tui` upgrades everything non-interactively (respects `--dry-run`).
 - `--semver` / `-s` opts into full semver tag resolution (e.g., `v5.3.1`). **Default is major-tag mode** (e.g., `v5`), which prefers `^v\d+$` tags and falls back to highest semver if none exist.

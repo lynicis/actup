@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Version-manager subcommands (nvm/fvm style):
+  - `actup use <action>[@<ref>]` — sets an action's version across all workflows and records the pin in `.actup.yaml` by default (`--no-save` to skip, `--dry-run` to preview). Ref forms: `@vN` verbatim, `@N` resolved to latest in major, `@latest` per tag mode, others verbatim.
+  - `actup pin <action>[@<ref>]` and `actup unpin <action>` — manage manifest pins without touching workflows; `pin` without a ref pins the version currently in use.
+  - `actup ls [action]` — lists actions in use with versions and pin status; `--outdated` annotates latest versions via the API; per-action detail lists every `file:line`.
+  - `actup sync` (alias `install`) — applies `.actup.yaml` pins to all workflows (exact refs verbatim, numeric majors resolved, `skip` ignored), with breaking-change warnings.
+  - `actup init` — bootstraps `.actup.yaml` from the versions currently used in workflows (`--force` merges into an existing manifest).
+  - `actup outdated` — subcommand form of the `--check` flag.
+- `internal/config`: deterministic manifest writing via `Render`/`Save`/`SaveDefault` (sorted keys, schema header, type-safe quoting).
+
+### Changed
+- Root command help now presents actup as a GitHub Actions version manager; existing scan-and-upgrade behavior is unchanged.
+
 ## [0.7.7] - 2026-09-12
 
 ### Changed
