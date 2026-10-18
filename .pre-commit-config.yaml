@@ -1,3 +1,6 @@
+default_install_hook_types: [pre-commit, post-commit, post-checkout, post-merge]
+default_stages: [pre-commit]
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -29,3 +32,11 @@ repos:
         language: golang
         types: [yaml]
         pass_filenames: false
+
+      - id: graphify-update
+        name: Graphify knowledge graph update
+        entry: sh -c 'command -v graphify >/dev/null 2>&1 || exit 0; [ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] || exit 0; nohup graphify update . >/dev/null 2>&1 &'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [post-commit, post-checkout, post-merge]
