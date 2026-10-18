@@ -524,7 +524,7 @@ func (m model) viewDetail() string {
 			b.WriteString(redStyle.Render(fmt.Sprintf("  ⚠ %s [%s] (%s)", v.ID, severity, fixed)))
 			b.WriteString("\n")
 			if v.Summary != "" {
-				b.WriteString(fmt.Sprintf("    %s\n", v.Summary))
+				fmt.Fprintf(&b, "    %s\n", v.Summary)
 			}
 			if v.URL != "" {
 				b.WriteString(dimStyle.Render(fmt.Sprintf("    %s\n", v.URL)))
