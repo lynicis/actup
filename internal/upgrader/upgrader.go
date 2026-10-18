@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/lynicis/actup/internal/parser"
@@ -38,9 +39,13 @@ func replaceInFile(file string, action parser.ActionRef, newTag string) error {
 
 	for i, line := range lines {
 		if i+1 == action.Line {
-			pattern := fmt.Sprintf("uses: %s@%s", usesPath(action), action.Current)
-			if strings.Contains(line, pattern) {
-				lines[i] = strings.Replace(line, action.Current, newTag, 1)
+			// Whitespace between "uses:" and the value may be spaces or tabs;
+			// the value may carry a trailing comment. Match on the ref segment
+			// anchored to the action path so exotic spacing cannot defeat the
+			// rewrite.
+			pattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(usesPath(action)) + `@` + regexp.QuoteMeta(action.Current))
+			if pattern.MatchString(line) {
+				lines[i] = pattern.ReplaceAllString(line, usesPath(action)+"@"+newTag)
 				found = true
 			}
 			break

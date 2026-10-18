@@ -302,6 +302,39 @@ jobs:
 	}
 }
 
+func TestReplaceInFileTabsAndComment(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "test.yml")
+	content := "name: Test\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Scan\n        uses:\t\tgoogle/osv-scanner-action/osv-scanner-action@v2.6.0    # v2.6.0 pinned\n"
+
+	if err := os.WriteFile(workflowPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+
+	action := parser.ActionRef{
+		Owner:   "google",
+		Repo:    "osv-scanner-action",
+		Path:    "google/osv-scanner-action/osv-scanner-action",
+		Current: "v2.6.0    # v2.6.0 pinned",
+		Line:    8,
+		File:    workflowPath,
+	}
+
+	if err := replaceInFile(workflowPath, action, "v2.7.0"); err != nil {
+		t.Fatalf("replaceInFile failed: %v", err)
+	}
+
+	updated, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("failed to read updated file: %v", err)
+	}
+
+	if !strings.Contains(string(updated), "uses:\t\tgoogle/osv-scanner-action/osv-scanner-action@v2.7.0") {
+		t.Errorf("expected tab-indented uses line upgraded in place, got:\n%s", string(updated))
+	}
+}
+
 func TestApplyAllUpgradesContinuesPastErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
