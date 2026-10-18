@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 - Upgrading subpath actions (e.g. `google/osv-scanner-action/osv-scanner-action@v2`) failed with "could not find expected uses line" because the upgrader matched `uses: owner/repo@tag`, dropping the subpath segment. `ActionRef` now carries the full action path and the upgrader, dry-run diffs, and `actup use` rewrite subpath references correctly.
 - Batch upgrades no longer abort on the first per-action failure; `ApplyAllUpgrades` applies every upgrade it can and reports the combined errors.
+- `uses:` refs with tabs or unusual spacing between the key and value (e.g. `uses:\t\taction@tag`) now match correctly; the rewrite is anchored to the `path@ref` segment instead of the literal `uses: ` prefix.
 
 ## [0.8.0] - 2026-10-18
 
