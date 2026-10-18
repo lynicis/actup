@@ -3,8 +3,8 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
-	"sync"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -101,7 +101,7 @@ type model struct {
 }
 
 // Run launches the interactive TUI.
-func Run(ctx context.Context, actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int, cfg *config.Config) error {
+func Run(actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int, cfg *config.Config) error {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = normalStyle
@@ -218,7 +218,7 @@ func (m model) updateChecklist(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "i":
-			if m.cursor >= 0 && m.cursor < len(m.items) && m.items[m.cursor].HasBreaking {
+			if m.cursor >= 0 && m.cursor < len(m.items) && (len(m.items[m.cursor].BreakingChanges) > 0 || len(m.items[m.cursor].Vulns) > 0) {
 				m.detailItem = m.cursor
 				m.state = stateDetail
 			}
@@ -267,12 +267,6 @@ func (m model) loadActions() tea.Msg {
 
 	registry, _ := breakingchanges.LoadRegistry()
 
-	type fetchResult struct {
-		key    string
-		latest string
-		err    error
-	}
-
 	skipKeys := make(map[string]bool)
 	if m.cfg != nil {
 		for key, pin := range m.cfg.Actions {
@@ -282,46 +276,23 @@ func (m model) loadActions() tea.Msg {
 		}
 	}
 
-	resultCh := make(chan fetchResult, len(grouped))
+	var cfgActions map[string]string
+	if m.cfg != nil {
+		cfgActions = m.cfg.Actions
+	}
 
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 5)
-
+	keys := make([]string, 0, len(grouped))
 	for key := range grouped {
-		if skipKeys[key] {
-			continue
+		if !skipKeys[key] {
+			keys = append(keys, key)
 		}
-
-		wg.Add(1)
-		go func(k string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			var cfgActions map[string]string
-			if m.cfg != nil {
-				cfgActions = m.cfg.Actions
-			}
-			latest, err := github.ResolveVersion(context.Background(), client, k, m.semverMode, m.majorVer, cfgActions)
-			resultCh <- fetchResult{k, latest, err}
-		}(key)
 	}
-
-	go func() {
-		wg.Wait()
-		close(resultCh)
-	}()
-
-	results := make(map[string]fetchResult)
-	for r := range resultCh {
-		results[r.key] = r
-	}
+	sort.Strings(keys)
+	results := github.ResolveAll(context.Background(), client, keys, m.semverMode, m.majorVer, cfgActions)
 
 	var items []ActionItem
-	for key, acts := range grouped {
-		if skipKeys[key] {
-			continue
-		}
+	for _, key := range keys {
+		acts := grouped[key]
 		parts := strings.SplitN(key, "/", 2)
 		owner := parts[0]
 		repo := parts[1]
@@ -334,12 +305,12 @@ func (m model) loadActions() tea.Msg {
 		}
 
 		if r, ok := results[key]; ok {
-			if r.err != nil {
+			if r.Err != nil {
 				item.APIError = true
-				item.APIErrorMsg = r.err.Error()
+				item.APIErrorMsg = r.Err.Error()
 			} else {
-				item.Latest = r.latest
-				if r.latest == acts[0].Current {
+				item.Latest = r.Latest
+				if r.Latest == acts[0].Current {
 					item.UpToDate = true
 				}
 			}
@@ -350,9 +321,7 @@ func (m model) loadActions() tea.Msg {
 		}
 
 		if registry != nil && !item.UpToDate && !item.APIError {
-			bcs := registry.Check(key, item.Current, item.Latest)
-			item.BreakingChanges = bcs
-			item.HasBreaking = len(bcs) > 0
+			item.BreakingChanges = registry.Check(key, item.Current, item.Latest)
 		}
 
 		items = append(items, item)
@@ -360,7 +329,7 @@ func (m model) loadActions() tea.Msg {
 
 	// Vulnerability audit against OSV.dev. Failures degrade gracefully to
 	// an amber note so the checklist still loads offline.
-	vulnClient := vulnscanner.NewClient("")
+	vulnClient := vulnscanner.NewClient()
 	findings, err := vulnClient.Scan(context.Background(), m.actions)
 	if err != nil {
 		for i := range items {
@@ -372,7 +341,6 @@ func (m model) loadActions() tea.Msg {
 			for i := range items {
 				if strings.ToLower(items[i].Owner+"/"+items[i].Repo) == key {
 					items[i].Vulns = f.Vulns
-					items[i].HasVulns = true
 				}
 			}
 		}
@@ -384,26 +352,24 @@ func (m model) loadActions() tea.Msg {
 }
 
 func (m model) applyUpgrades() tea.Msg {
-	upgrades := make(map[string]upgrader.Upgrade)
+	var upgrades []upgrader.Upgrade
 
 	for _, item := range m.items {
 		if !item.Selected {
 			continue
 		}
 
-		key := item.Owner + "/" + item.Repo
 		for _, action := range m.actions {
 			if action.Owner == item.Owner && action.Repo == item.Repo {
-				upgradeKey := fmt.Sprintf("%s:%s:%d", key, action.File, action.Line)
-				upgrades[upgradeKey] = upgrader.Upgrade{
+				upgrades = append(upgrades, upgrader.Upgrade{
 					Action: action,
 					NewTag: item.Latest,
-				}
+				})
 			}
 		}
 	}
 
-	_, err := upgrader.ApplyAllUpgrades(upgrades, m.dryRun)
+	err := upgrader.ApplyAllUpgrades(upgrades, m.dryRun)
 
 	var progress []progressItem
 	upgradedCount := 0
@@ -499,11 +465,11 @@ func (m model) viewChecklist() string {
 			suffix = " (API error)"
 		}
 
-		if item.HasBreaking {
+		if len(item.BreakingChanges) > 0 {
 			suffix += " " + amberStyle.Render("⚠ breaking changes")
 		}
 
-		if item.HasVulns {
+		if len(item.Vulns) > 0 {
 			suffix += " " + redStyle.Render("⚠ vulnerable")
 		}
 
@@ -540,7 +506,7 @@ func (m model) viewDetail() string {
 
 	item := m.items[m.detailItem]
 
-	if item.HasVulns {
+	if len(item.Vulns) > 0 {
 		b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Vulnerabilities", item.Owner, item.Repo)))
 		b.WriteString("\n\n")
 

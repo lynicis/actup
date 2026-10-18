@@ -14,17 +14,19 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/mod/semver"
+
 	"github.com/lynicis/actup/internal/parser"
 )
 
-// DefaultOSVBaseURL is the public OSV.dev API endpoint.
-const DefaultOSVBaseURL = "https://api.osv.dev/v1"
+// Default OSV.dev API endpoint, overridable in tests via newTestClient.
+const defaultOSVBaseURL = "https://api.osv.dev/v1"
 
 // maxConcurrency limits parallel vuln-detail fetches.
 const maxConcurrency = 5
 
-// Ecosystem is the OSV ecosystem identifier for GitHub Actions.
-const Ecosystem = "GitHub Actions"
+// ecosystem is the OSV ecosystem identifier for GitHub Actions.
+const ecosystem = "GitHub Actions"
 
 // Client queries the OSV.dev API for GitHub Actions advisories.
 type Client struct {
@@ -32,11 +34,13 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// NewClient creates an OSV client. An empty baseURL uses DefaultOSVBaseURL.
-func NewClient(baseURL string) *Client {
-	if baseURL == "" {
-		baseURL = DefaultOSVBaseURL
-	}
+// NewClient creates an OSV client pointed at the public OSV.dev API.
+func NewClient() *Client {
+	return newClient(defaultOSVBaseURL)
+}
+
+// newClient creates an OSV client against an explicit base URL (tests).
+func newClient(baseURL string) *Client {
 	return &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		httpClient: &http.Client{
@@ -47,12 +51,11 @@ func NewClient(baseURL string) *Client {
 
 // Vulnerability is a single OSV advisory relevant to an action.
 type Vulnerability struct {
-	ID       string   // OSV/GHSA id, e.g. "GHSA-mcph-m25j-8j63"
-	Summary  string   // one-line description
-	Aliases  []string // e.g. CVE ids
-	Severity string   // e.g. "HIGH", "CRITICAL" (from database_specific)
-	Fixed    string   // first fixed version ("" when unknown)
-	URL      string   // advisory link
+	ID       string // OSV/GHSA id, e.g. "GHSA-mcph-m25j-8j63"
+	Summary  string // one-line description
+	Severity string // e.g. "HIGH", "CRITICAL" (from database_specific)
+	Fixed    string // first fixed version ("" when unknown)
+	URL      string // advisory link
 }
 
 // Finding is a vulnerable action usage site in the scanned workflows.
@@ -69,7 +72,6 @@ type osvEvent struct {
 	Introduced   string `json:"introduced,omitempty"`
 	Fixed        string `json:"fixed,omitempty"`
 	LastAffected string `json:"last_affected,omitempty"`
-	Limit        string `json:"limit,omitempty"`
 }
 
 type osvQueryBatchRequest struct {
@@ -92,14 +94,9 @@ type osvQueryBatchResponse struct {
 }
 
 type osvVuln struct {
-	ID        string   `json:"id"`
-	Summary   string   `json:"summary"`
-	Aliases   []string `json:"aliases"`
-	Withdrawn *string  `json:"withdrawn,omitempty"`
-	Severity  []struct {
-		Type  string `json:"type"`
-		Score string `json:"score"`
-	} `json:"severity"`
+	ID               string  `json:"id"`
+	Summary          string  `json:"summary"`
+	Withdrawn        *string `json:"withdrawn,omitempty"`
 	DatabaseSpecific struct {
 		Severity string `json:"severity"`
 	} `json:"database_specific"`
@@ -144,7 +141,7 @@ func (c *Client) Scan(ctx context.Context, actions []parser.ActionRef) ([]Findin
 	queries := make([]osvQuery, 0, len(keys))
 	for _, info := range keys {
 		var q osvQuery
-		q.Package.Ecosystem = Ecosystem
+		q.Package.Ecosystem = ecosystem
 		q.Package.Name = info.owner + "/" + info.repo
 		queries = append(queries, q)
 	}
@@ -203,7 +200,6 @@ func (c *Client) Scan(ctx context.Context, actions []parser.ActionRef) ([]Findin
 				vulns = append(vulns, Vulnerability{
 					ID:       v.ID,
 					Summary:  v.Summary,
-					Aliases:  v.Aliases,
 					Severity: v.DatabaseSpecific.Severity,
 					Fixed:    v.firstFixed(),
 					URL:      v.advisoryURL(),
@@ -234,7 +230,7 @@ func (v *osvVuln) affects(actionKey, ref string) bool {
 		return false
 	}
 	for _, aff := range v.Affected {
-		if !strings.EqualFold(aff.Package.Ecosystem, Ecosystem) {
+		if !strings.EqualFold(aff.Package.Ecosystem, ecosystem) {
 			continue
 		}
 		if !strings.EqualFold(aff.Package.Name, actionKey) {
@@ -331,17 +327,16 @@ func buildIntervals(events []osvEvent) []interval {
 	return out
 }
 
-// lastAffectedEnd converts a last_affected version "X.Y.Z" into an exclusive
-// upper bound "X.Y.(Z+1)". For non-segmented inputs it returns the input.
+// lastAffectedEnd converts a last_affected version into an exclusive upper
+// bound by bumping its last specified segment: "3.2" → "3.3" (so 3.2.5 is
+// still affected), "3.2.4" → "3.2.5". Non-numeric inputs are returned
+// unchanged.
 func lastAffectedEnd(ver string) string {
-	norm := normalizeVersion(ver)
-	parts := strings.Split(norm, ".")
-	if len(parts) == 0 {
-		return norm
-	}
+	v := strings.TrimPrefix(strings.TrimSpace(ver), "v")
+	parts := strings.Split(v, ".")
 	last, err := strconv.Atoi(parts[len(parts)-1])
 	if err != nil {
-		return norm
+		return v
 	}
 	parts[len(parts)-1] = strconv.Itoa(last + 1)
 	return strings.Join(parts, ".")
@@ -441,52 +436,42 @@ func (v *osvVuln) advisoryURL() string {
 	return "https://osv.dev/vulnerability/" + v.ID
 }
 
-// normalizeVersion strips a leading "v" and trims whitespace.
+// normalizeVersion returns a canonical semver string ("v"-prefixed), or ""
+// when the input is not valid semver.
 func normalizeVersion(s string) string {
-	return strings.TrimPrefix(strings.TrimSpace(s), "v")
+	v := strings.TrimSpace(s)
+	if v == "" {
+		return ""
+	}
+	if !strings.HasPrefix(v, "v") {
+		v = "v" + v
+	}
+	if semver.IsValid(v) {
+		return semver.Canonical(v)
+	}
+	return ""
 }
 
-// versionsEqual compares two version strings ignoring a leading "v".
+// versionsEqual compares two version strings ignoring a leading "v" and
+// trailing zero segments ("41" == "v41.0.0").
 func versionsEqual(a, b string) bool {
-	return normalizeVersion(a) == normalizeVersion(b)
+	return normalizeVersion(a) == normalizeVersion(b) && normalizeVersion(a) != ""
 }
 
 // compareVersions compares two version strings numerically per segment.
-// It returns -1, 0, or 1. Non-numeric segments fall back to string compare.
+// It returns -1, 0, or 1. Non-semver inputs compare equal to each other and
+// unequal to any semver version.
 func compareVersions(a, b string) int {
-	a = normalizeVersion(a)
-	b = normalizeVersion(b)
-	if a == b {
-		return 0
-	}
-	as := strings.Split(a, ".")
-	bs := strings.Split(b, ".")
-	for i := 0; i < len(as) || i < len(bs); i++ {
-		av, bv := "", ""
-		if i < len(as) {
-			av = as[i]
+	an := normalizeVersion(a)
+	bn := normalizeVersion(b)
+	if an == "" || bn == "" {
+		if an == bn {
+			return 0
 		}
-		if i < len(bs) {
-			bv = bs[i]
-		}
-		an, aerr := strconv.Atoi(av)
-		bn, berr := strconv.Atoi(bv)
-		if aerr == nil && berr == nil {
-			if an < bn {
-				return -1
-			}
-			if an > bn {
-				return 1
-			}
-			continue
-		}
-		// Mixed numeric/string segments: compare segment strings.
-		if av < bv {
+		if an == "" {
 			return -1
 		}
-		if av > bv {
-			return 1
-		}
+		return 1
 	}
-	return 0
+	return semver.Compare(an, bn)
 }

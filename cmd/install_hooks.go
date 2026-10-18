@@ -11,7 +11,7 @@ import (
 const hookScript = `#!/bin/sh
 # actup pre-commit hook — checks for outdated GitHub Actions versions
 # Installed by: actup install-hooks
-exec actup --check --no-tui
+exec actup outdated
 `
 
 type installHooksOptions struct {

@@ -118,6 +118,9 @@ func doSync(ctx context.Context, opts syncOptions) error {
 	reader := bufio.NewReader(os.Stdin)
 	isTTY := isTerminal()
 
+	// Warn about vulnerable versions currently in use before syncing pins.
+	printVulnWarnings(ctx, actions)
+
 	upgraded, skipped, breakingSkipped, missing := 0, 0, 0, 0
 
 	for _, key := range keys {
@@ -167,6 +170,12 @@ func doSync(ctx context.Context, opts syncOptions) error {
 			continue
 		}
 
+		// Guard against syncing to a version that is itself vulnerable.
+		if !confirmVulnerableTarget(ctx, key, target, opts.dryRun, opts.force, reader, isTTY) {
+			fmt.Printf("⏭ %s: skipped — target %s is vulnerable\n", key, target)
+			continue
+		}
+
 		uniqueCurrents := map[string]bool{}
 		for _, ref := range refs {
 			uniqueCurrents[ref.Current] = true
@@ -177,13 +186,12 @@ func doSync(ctx context.Context, opts syncOptions) error {
 			continue
 		}
 
-		upgrades := make(map[string]upgrader.Upgrade)
+		upgrades := make([]upgrader.Upgrade, 0, len(refs))
 		for _, ref := range refs {
 			if ref.Current == target {
 				continue
 			}
-			upgradeKey := fmt.Sprintf("%s:%s:%d", key, ref.File, ref.Line)
-			upgrades[upgradeKey] = upgrader.Upgrade{Action: ref, NewTag: target}
+			upgrades = append(upgrades, upgrader.Upgrade{Action: ref, NewTag: target})
 		}
 		if len(upgrades) == 0 {
 			fmt.Printf("⏭ %s: already at %s\n", key, target)
@@ -197,7 +205,7 @@ func doSync(ctx context.Context, opts syncOptions) error {
 			continue
 		}
 
-		if _, err := upgrader.ApplyAllUpgrades(upgrades, false); err != nil {
+		if err := upgrader.ApplyAllUpgrades(upgrades, false); err != nil {
 			fmt.Printf("✗ %s: %v\n", key, err)
 			continue
 		}

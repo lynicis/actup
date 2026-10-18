@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - Exits `1` when vulnerable versions are found, `2` when OSV is unreachable.
   - Client-side version-range matching (OSV does not match versions server-side for this ecosystem), with `v`-prefix normalization and support for `introduced`/`fixed`/`last_affected` events and multiple vulnerable intervals.
   - New `internal/vulnscanner` package: batch queries (`querybatch`), parallel advisory-detail fetches (capped at 5), case-insensitive package matching, and withdrawn-advisory filtering.
-  - Inline warnings in the `--no-tui`/`--check` upgrade flows and a `⚠ vulnerable` badge with detail view in the interactive TUI.
+  - Inline warnings in the `--no-tui` upgrade flow and a `⚠ vulnerable` badge with detail view in the interactive TUI.
+  - `actup use`, `actup sync`, and `actup outdated` print the same warnings before making changes; `use` and `sync` additionally check the target version itself and prompt (y/N on TTY) when the version being pinned is affected by a known advisory.
 - Version-manager subcommands (nvm/fvm style):
   - `actup use <action>[@<ref>]` — sets an action's version across all workflows and records the pin in `.actup.yaml` by default (`--no-save` to skip, `--dry-run` to preview). Ref forms: `@vN` verbatim, `@N` resolved to latest in major, `@latest` per tag mode, others verbatim.
   - `actup pin <action>[@<ref>]` and `actup unpin <action>` — manage manifest pins without touching workflows; `pin` without a ref pins the version currently in use.

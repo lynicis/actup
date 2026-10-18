@@ -27,29 +27,15 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	upgrades := map[string]Upgrade{
-		"actions/checkout": {
+	upgrades := []Upgrade{
+		{
 			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
 			NewTag: "v4",
 		},
 	}
 
-	results, err := ApplyAllUpgrades(upgrades, false)
-	if err != nil {
+	if err := ApplyAllUpgrades(upgrades, false); err != nil {
 		t.Fatalf("ApplyAllUpgrades failed: %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("expected results for 1 file, got %d", len(results))
-	}
-
-	fileResults := results[workflowPath]
-	if len(fileResults) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(fileResults))
-	}
-
-	if !fileResults[0].Updated {
-		t.Error("expected action to be updated")
 	}
 
 	updatedContent, err := os.ReadFile(workflowPath)
@@ -83,29 +69,15 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	upgrades := map[string]Upgrade{
-		"actions/checkout": {
+	upgrades := []Upgrade{
+		{
 			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 8, File: workflowPath},
 			NewTag: "v4",
 		},
 	}
 
-	results, err := ApplyAllUpgrades(upgrades, false)
-	if err != nil {
+	if err := ApplyAllUpgrades(upgrades, false); err != nil {
 		t.Fatalf("ApplyAllUpgrades failed: %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Fatalf("expected results for 1 file, got %d", len(results))
-	}
-
-	fileResults := results[workflowPath]
-	if len(fileResults) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(fileResults))
-	}
-
-	if !fileResults[0].Updated {
-		t.Error("expected action to be updated")
 	}
 
 	updatedContent, err := os.ReadFile(workflowPath)
@@ -136,14 +108,14 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	upgrades := map[string]Upgrade{
-		"actions/checkout": {
+	upgrades := []Upgrade{
+		{
 			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
 			NewTag: "v4",
 		},
 	}
 
-	_, err := ApplyAllUpgrades(upgrades, true)
+	err := ApplyAllUpgrades(upgrades, true)
 	if err != nil {
 		t.Fatalf("ApplyAllUpgrades dry-run failed: %v", err)
 	}
@@ -259,24 +231,19 @@ jobs:
 		t.Fatalf("failed to write workflow: %v", err)
 	}
 
-	upgrades := map[string]Upgrade{
-		"actions/checkout": {
+	upgrades := []Upgrade{
+		{
 			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
 			NewTag: "v4",
 		},
-		"actions/setup-go": {
+		{
 			Action: parser.ActionRef{Owner: "actions", Repo: "setup-go", Current: "v4", Line: 8, File: workflowPath},
 			NewTag: "v5",
 		},
 	}
 
-	results, err := ApplyAllUpgrades(upgrades, false)
-	if err != nil {
+	if err := ApplyAllUpgrades(upgrades, false); err != nil {
 		t.Fatalf("ApplyAllUpgrades failed: %v", err)
-	}
-
-	if len(results) != 1 {
-		t.Errorf("expected 1 file result, got %d", len(results))
 	}
 
 	updatedContent, err := os.ReadFile(workflowPath)
@@ -297,7 +264,7 @@ func TestApplyUpgradesConcurrent(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	numFiles := 10
-	upgrades := make(map[string]Upgrade)
+	var upgrades []Upgrade
 	var paths []string
 
 	for i := 0; i < numFiles; i++ {
@@ -315,36 +282,17 @@ jobs:
 		}
 		paths = append(paths, path)
 
-		upgradeKey := "actions/checkout:" + path + ":7"
-		upgrades[upgradeKey] = Upgrade{
+		upgrades = append(upgrades, Upgrade{
 			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: path},
 			NewTag: "v4",
-		}
+		})
 	}
 
-	results, err := ApplyAllUpgrades(upgrades, false)
-	if err != nil {
+	if err := ApplyAllUpgrades(upgrades, false); err != nil {
 		t.Fatalf("ApplyAllUpgrades failed: %v", err)
 	}
 
-	if len(results) != numFiles {
-		t.Fatalf("expected results for %d files, got %d", numFiles, len(results))
-	}
-
 	for _, path := range paths {
-		fileResults, ok := results[path]
-		if !ok {
-			t.Fatalf("missing results for file %s", path)
-		}
-
-		if len(fileResults) != 1 {
-			t.Fatalf("expected 1 result for file %s, got %d", path, len(fileResults))
-		}
-
-		if !fileResults[0].Updated {
-			t.Errorf("expected action to be updated in file %s", path)
-		}
-
 		updatedContent, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatalf("failed to read updated workflow: %v", err)

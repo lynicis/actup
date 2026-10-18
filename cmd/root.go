@@ -6,11 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
-	"sync"
+	"sort"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/config"
@@ -30,7 +28,6 @@ var (
 	semverMode  bool
 	majorVer    int
 	force       bool
-	checkFlag   bool
 )
 
 var rootCmd = &cobra.Command{
@@ -68,7 +65,6 @@ func init() {
 	rootCmd.Flags().BoolVarP(&semverMode, "semver", "s", false, "Upgrade to the latest full semver tag instead of the latest major tag (e.g. v5.3.1 instead of v5)")
 	rootCmd.Flags().IntVarP(&majorVer, "major", "m", 0, "Pin upgrades to a specific major version (e.g. 4 for latest v4.x.x)")
 	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Upgrade actions with breaking changes without prompting in non-interactive mode")
-	rootCmd.Flags().BoolVar(&checkFlag, "check", false, "Check for outdated actions and exit non-zero if found (implies --no-tui)")
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -116,17 +112,12 @@ func run(cmd *cobra.Command, args []string) error {
 	// degrade gracefully so the upgrade flow still works offline. The TUI
 	// performs its own scan during loading instead (stderr output would be
 	// hidden by the alt screen).
-	if checkFlag {
-		printVulnWarnings(ctx, actions)
-		return runCheck(ctx, actions, githubToken, semverMode, majorVer, cfg)
-	}
-
 	if noTUI {
 		printVulnWarnings(ctx, actions)
 		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force, cfg)
 	}
 
-	return tui.Run(ctx, actions, githubToken, dryRun, semverMode, majorVer, cfg)
+	return tui.Run(actions, githubToken, dryRun, semverMode, majorVer, cfg)
 }
 
 func filterSkippedActions(actions []parser.ActionRef, cfg *config.Config) []parser.ActionRef {
@@ -153,134 +144,85 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load breaking-change registry: %v\n", err)
 	}
 
-	type result struct {
-		key       string
-		latest    string
-		fileCount int
-		err       error
+	var cfgActions map[string]string
+	if cfg != nil {
+		cfgActions = cfg.Actions
 	}
 
-	resultCh := make(chan result, len(grouped))
-
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 5)
-
-	for key, acts := range grouped {
-		wg.Add(1)
-		go func(key string, acts []parser.ActionRef) {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			defer wg.Done()
-
-			var cfgActions map[string]string
-			if cfg != nil {
-				cfgActions = cfg.Actions
-			}
-			latest, err := github.ResolveVersion(ctx, ghClient, key, semverMode, majorVer, cfgActions)
-
-			resultCh <- result{
-				key:       key,
-				latest:    latest,
-				fileCount: len(acts),
-				err:       err,
-			}
-		}(key, acts)
+	keys := make([]string, 0, len(grouped))
+	for key := range grouped {
+		keys = append(keys, key)
 	}
-
-	go func() {
-		wg.Wait()
-		close(resultCh)
-	}()
+	sort.Strings(keys)
+	results := github.ResolveAll(ctx, ghClient, keys, semverMode, majorVer, cfgActions)
 
 	upgraded := 0
 	skipped := 0
 	apiErr := 0
 	breakingSkipped := 0
 
-	isTTY := term.IsTerminal(int(os.Stdin.Fd()))
+	isTTY := isTerminal()
 	reader := bufio.NewReader(os.Stdin)
 
-	for r := range resultCh {
-		acts := grouped[r.key]
+	for _, key := range keys {
+		acts := grouped[key]
 		current := acts[0].Current
+		r := results[key]
 
-		if r.err != nil {
-			if errors.Is(r.err, github.ErrNoSemverTags) {
+		if r.Err != nil {
+			if errors.Is(r.Err, github.ErrNoSemverTags) {
 				skipped++
-				fmt.Printf("⏭ %s: no tags found for major v%d\n", r.key, majorVer)
+				fmt.Printf("⏭ %s: no tags found for major v%d\n", key, majorVer)
 				continue
 			}
 			apiErr++
-			fmt.Printf("⚠ %s: API error (%s)\n", r.key, r.err)
+			fmt.Printf("⚠ %s: API error (%s)\n", key, r.Err)
 			continue
 		}
 
 		var needsUpgrade []parser.ActionRef
 		for _, act := range acts {
-			if act.Current != r.latest {
+			if act.Current != r.Latest {
 				needsUpgrade = append(needsUpgrade, act)
 			}
 		}
 
 		if len(needsUpgrade) == 0 {
 			skipped++
-			fmt.Printf("⏭ %s: already at %s\n", r.key, r.latest)
+			fmt.Printf("⏭ %s: already at %s\n", key, r.Latest)
 			continue
 		}
 
-		var bcs []breakingchanges.BreakingChange
-		if registry != nil {
-			bcs = registry.Check(r.key, current, r.latest)
+		bcs := breakingChangesFor(registry, key, current, r.Latest)
+
+		proceed, wasSkipped := confirmBreaking(key, current, r.Latest, bcs, dryRun, force, reader, isTTY)
+		if wasSkipped {
+			breakingSkipped++
+			continue
 		}
-
-		if len(bcs) > 0 && !dryRun && !force {
-			fmt.Printf("\n⚠ %s: %s → %s has breaking changes:\n", r.key, current, r.latest)
-			for _, bc := range bcs {
-				fmt.Printf("  • %s\n", bc.Message)
-			}
-
-			if !isTTY {
-				fmt.Printf("  Skipping breaking-change actions. Use --force to upgrade them anyway.\n")
-				breakingSkipped++
-				continue
-			}
-
-			fmt.Print("  Upgrade anyway? [y/N] ")
-			answer, _ := reader.ReadString('\n')
-			answer = strings.TrimSpace(strings.ToLower(answer))
-			if answer != "y" && answer != "yes" {
-				breakingSkipped++
-				continue
-			}
-		}
-
-		if len(bcs) > 0 && (dryRun || force) {
-			fmt.Printf("\n⚠ %s: %s → %s has breaking changes:\n", r.key, current, r.latest)
-			for _, bc := range bcs {
-				fmt.Printf("  • %s\n", bc.Message)
-			}
+		if !proceed {
+			continue
 		}
 
 		upgraded++
 
 		if dryRun {
-			fmt.Printf("would update %s: %s → %s\n", r.key, current, r.latest)
+			fmt.Printf("would update %s: %s → %s\n", key, current, r.Latest)
 		} else {
-			upgrades := make(map[string]upgrader.Upgrade)
+			upgrades := make([]upgrader.Upgrade, 0, len(needsUpgrade))
 			for _, act := range needsUpgrade {
-				upgradeKey := fmt.Sprintf("%s:%s:%d", r.key, act.File, act.Line)
-				upgrades[upgradeKey] = upgrader.Upgrade{
+				upgrades = append(upgrades, upgrader.Upgrade{
 					Action: act,
-					NewTag: r.latest,
-				}
+					NewTag: r.Latest,
+				})
 			}
 
-			_, err := upgrader.ApplyAllUpgrades(upgrades, false)
-			if err != nil {
-				fmt.Printf("✗ %s: %v\n", r.key, err)
+			if err := upgrader.ApplyAllUpgrades(upgrades, false); err != nil {
+				fmt.Printf("✗ %s: %v\n", key, err)
+				upgraded--
 				continue
 			}
-			fmt.Printf("✓ %s: %s → %s\n", r.key, current, r.latest)
+			fmt.Printf("✓ %s: %s → %s\n", key, current, r.Latest)
 		}
 	}
 
@@ -309,46 +251,24 @@ func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, s
 		cfgActions = cfg.Actions
 	}
 
-	type checkResult struct {
-		key    string
-		latest string
-		err    error
-	}
-
-	resultCh := make(chan checkResult, len(grouped))
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 5)
-
+	keys := make([]string, 0, len(grouped))
 	for key := range grouped {
-		wg.Add(1)
-		go func(k string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			latest, err := github.ResolveVersion(ctx, ghClient, k, semverMode, majorVer, cfgActions)
-			resultCh <- checkResult{key: k, latest: latest, err: err}
-		}(key)
+		keys = append(keys, key)
 	}
+	sort.Strings(keys)
+	results := github.ResolveAll(ctx, ghClient, keys, semverMode, majorVer, cfgActions)
 
-	go func() {
-		wg.Wait()
-		close(resultCh)
-	}()
-
-	results := make(map[string]string)
-	for r := range resultCh {
-		if r.err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", r.err)
+	for _, r := range results {
+		if r.Err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", r.Err)
 			os.Exit(2)
 		}
-		results[r.key] = r.latest
 	}
 
 	var outdated []outdatedAction
-	for key, acts := range grouped {
-		latest := results[key]
-		for _, act := range acts {
+	for _, key := range keys {
+		latest := results[key].Latest
+		for _, act := range grouped[key] {
 			if act.Current != latest {
 				outdated = append(outdated, outdatedAction{
 					ActionRef: act,

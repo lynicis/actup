@@ -9,16 +9,10 @@ import (
 	"github.com/lynicis/actup/internal/parser"
 )
 
+// Upgrade rewrites one action reference to a new tag.
 type Upgrade struct {
 	Action parser.ActionRef
 	NewTag string
-}
-
-type Result struct {
-	Action  parser.ActionRef
-	NewTag  string
-	Updated bool
-	Error   error
 }
 
 func replaceInFile(file string, action parser.ActionRef, newTag string) error {
@@ -73,47 +67,32 @@ func replaceInFile(file string, action parser.ActionRef, newTag string) error {
 	return nil
 }
 
-func showDryRunDiff(file string, action parser.ActionRef, newTag string) error {
+func showDryRunDiff(file string, action parser.ActionRef, newTag string) {
 	oldLine := fmt.Sprintf("uses: %s/%s@%s", action.Owner, action.Repo, action.Current)
 	newLine := fmt.Sprintf("uses: %s/%s@%s", action.Owner, action.Repo, newTag)
 
 	fmt.Printf("--- a/%s\n+++ b/%s\n@@ -%d,1 +%d,1 @@\n-%s\n+%s\n", file, file, action.Line, action.Line, oldLine, newLine)
-	return nil
 }
 
-func ApplyAllUpgrades(upgrades map[string]Upgrade, dryRun bool) (map[string][]Result, error) {
-	results := make(map[string][]Result)
-
+// ApplyAllUpgrades applies every upgrade. In dry-run mode it prints a
+// diff-style preview instead of writing files.
+func ApplyAllUpgrades(upgrades []Upgrade, dryRun bool) error {
 	byFile := make(map[string][]Upgrade)
 	for _, u := range upgrades {
 		byFile[u.Action.File] = append(byFile[u.Action.File], u)
 	}
 
 	for file, fileUpgrades := range byFile {
-		var fileResults []Result
-
 		for _, u := range fileUpgrades {
-			result := Result{Action: u.Action, NewTag: u.NewTag}
-
 			if dryRun {
-				if err := showDryRunDiff(file, u.Action, u.NewTag); err != nil {
-					result.Error = err
-				} else {
-					result.Updated = true
-				}
-			} else {
-				if err := replaceInFile(file, u.Action, u.NewTag); err != nil {
-					result.Error = err
-				} else {
-					result.Updated = true
-				}
+				showDryRunDiff(file, u.Action, u.NewTag)
+				continue
 			}
-
-			fileResults = append(fileResults, result)
+			if err := replaceInFile(file, u.Action, u.NewTag); err != nil {
+				return fmt.Errorf("%s: %w", file, err)
+			}
 		}
-
-		results[file] = fileResults
 	}
 
-	return results, nil
+	return nil
 }

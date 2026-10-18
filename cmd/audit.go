@@ -82,7 +82,7 @@ func runAudit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	client := vulnscanner.NewClient("")
+	client := vulnscanner.NewClient()
 	findings, err := client.Scan(ctx, actions)
 	if err != nil {
 		if auditOpts.json {

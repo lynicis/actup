@@ -121,8 +121,7 @@ func savePin(key, ref string) error {
 }
 
 // confirmBreaking prints breaking-change warnings and returns whether to
-// proceed. It mirrors the --no-tui behavior in root.go: proceed when dry-run
-// or force, prompt on a TTY, otherwise skip.
+// proceed. Proceed when dry-run or force, prompt on a TTY, otherwise skip.
 func confirmBreaking(action, from, to string, bcs []breakingchanges.BreakingChange, dryRun, force bool, reader *bufio.Reader, isTTY bool) (proceed bool, skipped bool) {
 	if len(bcs) == 0 {
 		return true, false
@@ -170,16 +169,7 @@ func breakingChangesFor(registry *breakingchanges.Registry, action, from, to str
 // network) degrade gracefully: a short notice is printed and the caller's
 // flow continues.
 func printVulnWarnings(ctx context.Context, actions []parser.ActionRef) {
-	if len(actions) == 0 {
-		return
-	}
-
-	client := vulnscanner.NewClient("")
-	findings, err := client.Scan(ctx, actions)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠ Vulnerability check unavailable: %v\n", err)
-		return
-	}
+	findings, _ := scanVulns(ctx, actions)
 	if len(findings) == 0 {
 		return
 	}
@@ -200,4 +190,76 @@ func printVulnWarnings(ctx context.Context, actions []parser.ActionRef) {
 		}
 	}
 	fmt.Fprintf(os.Stderr, "  Run 'actup audit' for details, or upgrade with 'actup use <action>@latest'.\n\n")
+}
+
+// scanVulns runs the OSV audit over actions and returns the findings, plus a
+// map of vulnerable action key -> advisories. A nil map means the scan
+// failed (offline); callers should degrade gracefully in that case.
+func scanVulns(ctx context.Context, actions []parser.ActionRef) ([]vulnscanner.Finding, map[string][]vulnscanner.Vulnerability) {
+	if len(actions) == 0 {
+		return nil, make(map[string][]vulnscanner.Vulnerability)
+	}
+
+	client := vulnscanner.NewClient()
+	findings, err := client.Scan(ctx, actions)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Vulnerability check unavailable: %v\n", err)
+		return nil, nil
+	}
+
+	vulnsByKey := make(map[string][]vulnscanner.Vulnerability)
+	for _, f := range findings {
+		key := strings.ToLower(f.Owner + "/" + f.Repo)
+		vulnsByKey[key] = f.Vulns
+	}
+	return findings, vulnsByKey
+}
+
+// confirmVulnerableTarget warns when the target version of an upgrade is
+// itself affected by known advisories and asks whether to proceed. Mirrors
+// confirmBreaking's TTY semantics: auto-proceed on dry-run/force, prompt on
+// TTY, proceed with a notice when not a TTY.
+func confirmVulnerableTarget(ctx context.Context, key, target string, dryRun, force bool, reader *bufio.Reader, isTTY bool) bool {
+	owner, repo := splitActionKey(key)
+	probe := []parser.ActionRef{{Owner: owner, Repo: repo, Current: target}}
+	_, vulnsByKey := scanVulns(ctx, probe)
+	vulns := vulnsByKey[strings.ToLower(key)]
+	if len(vulns) == 0 {
+		return true
+	}
+
+	fmt.Printf("\n⚠ %s: target version %s is affected by %d known vulnerabilit%s:\n", key, target, len(vulns), pluralY(len(vulns)))
+	for _, v := range vulns {
+		severity := v.Severity
+		if severity == "" {
+			severity = "UNKNOWN"
+		}
+		fixed := ""
+		if v.Fixed != "" {
+			fixed = fmt.Sprintf(", fixed in %s", v.Fixed)
+		}
+		fmt.Printf("  • %s [%s]%s — %s\n", v.ID, severity, fixed, v.Summary)
+	}
+
+	if dryRun || force {
+		return true
+	}
+
+	if !isTTY {
+		fmt.Printf("  Proceeding anyway (non-interactive). Use --force to suppress this notice.\n")
+		return true
+	}
+
+	fmt.Print("  Pin this version anyway? [y/N] ")
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	return answer == "y" || answer == "yes"
+}
+
+// pluralY returns "y" for one, "ies" otherwise.
+func pluralY(n int) string {
+	if n == 1 {
+		return "y"
+	}
+	return "ies"
 }

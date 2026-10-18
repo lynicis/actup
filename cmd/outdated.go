@@ -65,5 +65,8 @@ func runOutdated(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Surface vulnerable versions alongside the outdated report.
+	printVulnWarnings(ctx, actions)
+
 	return runCheck(ctx, actions, ghToken, outdatedOpts.semver, outdatedOpts.major, cfg)
 }

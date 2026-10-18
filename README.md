@@ -261,7 +261,7 @@ gh auth login
 
 ### Config File (`.actup.yaml`)
 
-`.actup.yaml` is your action version manifest — the declared source of truth that `actup sync` applies to your workflows. `actup init` generates it, `actup use` and `actup pin` keep it up to date, and `actup --check` / `actup outdated` honor it. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
+`.actup.yaml` is your action version manifest — the declared source of truth that `actup sync` applies to your workflows. `actup init` generates it, `actup use` and `actup pin` keep it up to date, and `actup outdated` honor it. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/lynicis/actup/main/schema.json
@@ -290,7 +290,7 @@ Catch stale action versions before they land in a commit — two options:
 
 ### `actup install-hooks` (built-in)
 
-Installs a plain `pre-commit` hook that runs `actup --check --no-tui` on every commit:
+Installs a plain `pre-commit` hook that runs `actup outdated` on every commit:
 
 ```sh
 actup install-hooks              # install the hook
@@ -311,7 +311,7 @@ repos:
       - id: actup-check
 ```
 
-> The hook runs `actup --check --no-tui` and fails the commit if any actions can be upgraded. Omit `rev` to track `main` for the latest version.
+> The hook runs `actup outdated` and fails the commit if any actions can be upgraded. Omit `rev` to track `main` for the latest version.
 
 ## Breaking Changes
 
@@ -335,6 +335,7 @@ actup audit --json     # machine-readable output for CI
 - Vulnerability matching happens client-side against OSV range data, so major-tag refs (e.g. `@v4`) are matched correctly even though OSV only indexes full semver tags.
 - Actions marked `skip` in `.actup.yaml` are excluded.
 - The interactive TUI and `--no-tui` upgrade flows also warn inline: the TUI shows a `⚠ vulnerable` badge (press `i` for details), and non-interactive runs print warnings before upgrading.
+- `actup use`, `actup sync`, and `actup outdated` surface the same warnings, and `use`/`sync` also check the **target version** you're about to pin: if that version is itself affected by a known advisory, you'll see it before anything is written (interactive `y/N` prompt on a TTY, notice + proceed in CI, auto-proceed with `--force`/`--dry-run`).
 
 ## Roadmap
 

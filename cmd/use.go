@@ -90,6 +90,9 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 	reader := bufio.NewReader(os.Stdin)
 	isTTY := isTerminal()
 
+	// Warn about vulnerable versions currently in use before changing anything.
+	printVulnWarnings(ctx, actions)
+
 	updatedActions := 0
 	for _, spec := range specs {
 		target, err := resolveSpecRef(ctx, client, spec, opts.semver)
@@ -105,6 +108,12 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 			proceed = checkUseBreaking(spec.Key, refs, target, registry, opts, reader, isTTY)
 		}
 		if !proceed {
+			continue
+		}
+
+		// Guard against pinning a version that is itself vulnerable.
+		if len(refs) > 0 && !confirmVulnerableTarget(ctx, spec.Key, target, opts.dryRun, opts.force, reader, isTTY) {
+			fmt.Printf("⏭ %s: skipped — target %s is vulnerable\n", spec.Key, target)
 			continue
 		}
 
@@ -201,13 +210,12 @@ func applyUseToFileRefs(key string, refs []parser.ActionRef, target string, dryR
 		}
 	}
 
-	upgrades := make(map[string]upgrader.Upgrade)
+	upgrades := make([]upgrader.Upgrade, 0, len(refs))
 	for _, ref := range refs {
 		if ref.Current == target {
 			continue
 		}
-		upgradeKey := fmt.Sprintf("%s:%s:%d", key, ref.File, ref.Line)
-		upgrades[upgradeKey] = upgrader.Upgrade{Action: ref, NewTag: target}
+		upgrades = append(upgrades, upgrader.Upgrade{Action: ref, NewTag: target})
 	}
 	if len(upgrades) == 0 {
 		fmt.Printf("⏭ %s: already at %s\n", key, target)
@@ -222,7 +230,7 @@ func applyUseToFileRefs(key string, refs []parser.ActionRef, target string, dryR
 		return true
 	}
 
-	if _, err := upgrader.ApplyAllUpgrades(upgrades, false); err != nil {
+	if err := upgrader.ApplyAllUpgrades(upgrades, false); err != nil {
 		fmt.Printf("✗ %s: %v\n", key, err)
 		return false
 	}

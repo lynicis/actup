@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -14,13 +13,15 @@ import (
 
 	"github.com/google/go-github/v89/github"
 	"golang.org/x/mod/semver"
-	"golang.org/x/oauth2"
 )
 
 var (
 	ErrNoSemverTags = errors.New("no semver tags found for repository")
 	majorTagRegex   = regexp.MustCompile(`^v\d+$`)
 )
+
+// maxConcurrency caps parallel GitHub API requests.
+const maxConcurrency = 5
 
 type TagMode struct {
 	Semver bool
@@ -37,21 +38,16 @@ type Client struct {
 }
 
 func NewClient(token string) *Client {
-	var tc *http.Client
-
-	if token != "" {
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: token},
-		)
-		tc = oauth2.NewClient(context.Background(), ts)
+	opts := []github.ClientOptionsFunc{github.WithAuthToken(token)}
+	if token == "" {
+		opts = nil
 	}
-
-	client, err := github.NewClient(github.WithHTTPClient(tc))
+	client, err := github.NewClient(opts...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(2)
+		// Unreachable: WithAuthToken only rejects an empty token, which is
+		// guarded above, and no other options are set.
+		panic(fmt.Sprintf("go-github client options: %v", err))
 	}
-
 	return &Client{
 		client: client,
 		cache:  sync.Map{},
@@ -60,7 +56,6 @@ func NewClient(token string) *Client {
 
 func (c *Client) LatestTag(ctx context.Context, owner, repo string, mode TagMode) (string, error) {
 	cacheKey := mode.cacheKey(owner, repo)
-
 	if cached, ok := c.cache.Load(cacheKey); ok {
 		return cached.(string), nil
 	}
@@ -193,4 +188,44 @@ func ResolveVersion(
 	}
 
 	return client.LatestTag(ctx, owner, repo, TagMode{Semver: semverMode, Major: resolvedMajor})
+}
+
+// ResolveAll resolves the latest version for every key in parallel (capped
+// at maxConcurrency) and returns key -> latest version. Callers decide how
+// to report per-key errors.
+func ResolveAll(
+	ctx context.Context,
+	client *Client,
+	keys []string,
+	semverMode bool,
+	defaultMajor int,
+	cfgActions map[string]string,
+) map[string]ResolveResult {
+	results := make(map[string]ResolveResult, len(keys))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, maxConcurrency)
+
+	for _, key := range keys {
+		wg.Add(1)
+		go func(k string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			latest, err := ResolveVersion(ctx, client, k, semverMode, defaultMajor, cfgActions)
+
+			mu.Lock()
+			defer mu.Unlock()
+			results[k] = ResolveResult{Latest: latest, Err: err}
+		}(key)
+	}
+	wg.Wait()
+	return results
+}
+
+// ResolveResult is the outcome of resolving one action key.
+type ResolveResult struct {
+	Latest string
+	Err    error
 }

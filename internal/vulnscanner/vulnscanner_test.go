@@ -73,7 +73,7 @@ func newMockOSV(t *testing.T) *mockOSV {
 }
 
 func (m *mockOSV) client() *Client {
-	return NewClient(m.server.URL)
+	return newClient(m.server.URL)
 }
 
 func (m *mockOSV) addVuln(pkg string, v map[string]any) {
@@ -349,7 +349,7 @@ func TestScanPropagatesNetworkError(t *testing.T) {
 	url := server.URL
 	server.Close()
 
-	client := NewClient(url)
+	client := newClient(url)
 	actions := []parser.ActionRef{{Owner: "a", Repo: "b", Current: "v1", File: "wf.yml", Line: 1}}
 	if _, err := client.Scan(context.Background(), actions); err == nil {
 		t.Fatal("expected an error when OSV is unreachable")

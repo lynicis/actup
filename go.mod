@@ -11,7 +11,6 @@ require (
 	github.com/muesli/termenv v0.16.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/mod v0.42.0
-	golang.org/x/oauth2 v0.37.0
 	golang.org/x/term v0.47.0
 )
 

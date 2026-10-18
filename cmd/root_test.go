@@ -26,13 +26,13 @@ func TestFilterSkippedActions(t *testing.T) {
 	}
 }
 
-func TestCheckFlagRegistered(t *testing.T) {
-	f := rootCmd.Flags().Lookup("check")
+func TestNoTUIFlagRegistered(t *testing.T) {
+	f := rootCmd.Flags().Lookup("no-tui")
 	if f == nil {
-		t.Fatal("--check flag not registered")
+		t.Fatal("--no-tui flag not registered")
 	}
 	if f.Value.Type() != "bool" {
-		t.Errorf("--check should be bool, got %s", f.Value.Type())
+		t.Errorf("--no-tui should be bool, got %s", f.Value.Type())
 	}
 }
 
