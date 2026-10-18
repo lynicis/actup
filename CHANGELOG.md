@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.1] - 2026-10-18
 
 ### Fixed
 - Upgrading subpath actions (e.g. `google/osv-scanner-action/osv-scanner-action@v2`) failed with "could not find expected uses line" because the upgrader matched `uses: owner/repo@tag`, dropping the subpath segment. `ActionRef` now carries the full action path and the upgrader, dry-run diffs, and `actup use` rewrite subpath references correctly.
