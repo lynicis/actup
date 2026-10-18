@@ -222,7 +222,11 @@ func applyUseToFileRefs(key string, refs []parser.ActionRef, target string, dryR
 
 func printUseDiff(u upgrader.Upgrade) {
 	a := u.Action
-	oldLine := fmt.Sprintf("uses: %s/%s@%s", a.Owner, a.Repo, a.Current)
-	newLine := fmt.Sprintf("uses: %s/%s@%s", a.Owner, a.Repo, u.NewTag)
+	path := a.Path
+	if path == "" {
+		path = a.Owner + "/" + a.Repo
+	}
+	oldLine := fmt.Sprintf("uses: %s@%s", path, a.Current)
+	newLine := fmt.Sprintf("uses: %s@%s", path, u.NewTag)
 	fmt.Printf("--- a/%s\n+++ b/%s\n@@ -%d,1 +%d,1 @@\n-%s\n+%s\n", a.File, a.File, a.Line, a.Line, oldLine, newLine)
 }

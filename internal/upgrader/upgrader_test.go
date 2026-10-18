@@ -260,6 +260,96 @@ jobs:
 	}
 }
 
+func TestReplaceInFileSubpathAction(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "test.yml")
+	content := `name: Test
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run OSV-Scanner Action
+        uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
+`
+
+	if err := os.WriteFile(workflowPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+
+	action := parser.ActionRef{
+		Owner:   "google",
+		Repo:    "osv-scanner-action",
+		Path:    "google/osv-scanner-action/osv-scanner-action",
+		Current: "a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0",
+		Line:    8,
+		File:    workflowPath,
+	}
+
+	if err := replaceInFile(workflowPath, action, "v2.7.0"); err != nil {
+		t.Fatalf("replaceInFile failed: %v", err)
+	}
+
+	updated, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("failed to read updated file: %v", err)
+	}
+
+	expectedLine := "uses: google/osv-scanner-action/osv-scanner-action@v2.7.0"
+	if !strings.Contains(string(updated), expectedLine) {
+		t.Errorf("expected line %q in updated content, got:\n%s", expectedLine, string(updated))
+	}
+}
+
+func TestApplyAllUpgradesContinuesPastErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "test.yml")
+	content := `name: CI
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+`
+
+	if err := os.WriteFile(workflowPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+
+	upgrades := []Upgrade{
+		{
+			// Bad line number: replaceInFile will fail to find this uses line.
+			Action: parser.ActionRef{Owner: "actions", Repo: "cache", Current: "v3", Line: 99, File: workflowPath},
+			NewTag: "v4",
+		},
+		{
+			Action: parser.ActionRef{Owner: "actions", Repo: "checkout", Current: "v3", Line: 7, File: workflowPath},
+			NewTag: "v4",
+		},
+	}
+
+	err := ApplyAllUpgrades(upgrades, false)
+	if err == nil {
+		t.Fatal("expected an error for the unfindable uses line")
+	}
+
+	updatedContent, err2 := os.ReadFile(workflowPath)
+	if err2 != nil {
+		t.Fatalf("failed to read updated workflow: %v", err2)
+	}
+
+	if !strings.Contains(string(updatedContent), "uses: actions/checkout@v4") {
+		t.Error("checkout should still be upgraded despite the failed upgrade")
+	}
+	if !strings.Contains(string(updatedContent), "uses: actions/setup-go@v4") {
+		t.Error("setup-go should be untouched")
+	}
+}
+
 func TestApplyUpgradesConcurrent(t *testing.T) {
 	tmpDir := t.TempDir()
 

@@ -1,6 +1,7 @@
 package upgrader
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,15 @@ import (
 type Upgrade struct {
 	Action parser.ActionRef
 	NewTag string
+}
+
+// usesPath returns the full action path (with subpath) to match in the
+// workflow file. It falls back to owner/repo for refs built by hand.
+func usesPath(action parser.ActionRef) string {
+	if action.Path != "" {
+		return action.Path
+	}
+	return action.Owner + "/" + action.Repo
 }
 
 func replaceInFile(file string, action parser.ActionRef, newTag string) error {
@@ -28,7 +38,7 @@ func replaceInFile(file string, action parser.ActionRef, newTag string) error {
 
 	for i, line := range lines {
 		if i+1 == action.Line {
-			pattern := fmt.Sprintf("uses: %s/%s@%s", action.Owner, action.Repo, action.Current)
+			pattern := fmt.Sprintf("uses: %s@%s", usesPath(action), action.Current)
 			if strings.Contains(line, pattern) {
 				lines[i] = strings.Replace(line, action.Current, newTag, 1)
 				found = true
@@ -68,20 +78,22 @@ func replaceInFile(file string, action parser.ActionRef, newTag string) error {
 }
 
 func showDryRunDiff(file string, action parser.ActionRef, newTag string) {
-	oldLine := fmt.Sprintf("uses: %s/%s@%s", action.Owner, action.Repo, action.Current)
-	newLine := fmt.Sprintf("uses: %s/%s@%s", action.Owner, action.Repo, newTag)
+	oldLine := fmt.Sprintf("uses: %s@%s", usesPath(action), action.Current)
+	newLine := fmt.Sprintf("uses: %s@%s", usesPath(action), newTag)
 
 	fmt.Printf("--- a/%s\n+++ b/%s\n@@ -%d,1 +%d,1 @@\n-%s\n+%s\n", file, file, action.Line, action.Line, oldLine, newLine)
 }
 
-// ApplyAllUpgrades applies every upgrade. In dry-run mode it prints a
-// diff-style preview instead of writing files.
+// ApplyAllUpgrades applies every upgrade, continuing past individual
+// failures so one bad line does not block the rest. In dry-run mode it
+// prints a diff-style preview instead of writing files.
 func ApplyAllUpgrades(upgrades []Upgrade, dryRun bool) error {
 	byFile := make(map[string][]Upgrade)
 	for _, u := range upgrades {
 		byFile[u.Action.File] = append(byFile[u.Action.File], u)
 	}
 
+	var errs []error
 	for file, fileUpgrades := range byFile {
 		for _, u := range fileUpgrades {
 			if dryRun {
@@ -89,10 +101,10 @@ func ApplyAllUpgrades(upgrades []Upgrade, dryRun bool) error {
 				continue
 			}
 			if err := replaceInFile(file, u.Action, u.NewTag); err != nil {
-				return fmt.Errorf("%s: %w", file, err)
+				errs = append(errs, fmt.Errorf("%s: %w", file, err))
 			}
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }

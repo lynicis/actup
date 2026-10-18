@@ -137,6 +137,7 @@ func TestParseActionRef(t *testing.T) {
 		{"actions/checkout@e7d184456a78df3f4a5c6d7e8f9a0b1c2d3e4f60", true, "", "", ""},
 		{"docker/login-action@v2", false, "docker", "login-action", "v2"},
 		{"github/super-linter@v6", false, "github", "super-linter", "v6"},
+		{"google/osv-scanner-action/osv-scanner-action@v2.6.0", false, "google", "osv-scanner-action", "v2.6.0"},
 	}
 
 	for _, tt := range tests {

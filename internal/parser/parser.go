@@ -11,8 +11,11 @@ import (
 )
 
 type ActionRef struct {
-	Owner   string
-	Repo    string
+	Owner string
+	Repo  string
+	// Path is the full action path before "@", including any subpath
+	// (e.g. "google/osv-scanner-action/osv-scanner-action").
+	Path    string
 	Current string
 	Line    int
 	File    string
@@ -101,6 +104,7 @@ func parseActionRef(uses string) (*ActionRef, error) {
 	return &ActionRef{
 		Owner:   owner,
 		Repo:    repo,
+		Path:    actionPath,
 		Current: ref,
 	}, nil
 }
