@@ -3,3 +3,5 @@ dist/
 actup
 docs/plans/
 .worktrees/
+graphify-out/
+.agents/
