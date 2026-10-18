@@ -42,21 +42,27 @@ func runInstallHooks(cmd *cobra.Command, args []string) error {
 	if installOpts.uninstall {
 		return uninstallHook(installOpts.path)
 	}
-	if installOpts.dryRun {
-		return installHookDryRun(installOpts.path)
-	}
-	return installHook(installOpts.path, installOpts.force)
+	return installHook(installOpts.path, installOpts.force, installOpts.dryRun)
 }
 
 func hookFilePath(repoPath string) string {
 	return filepath.Join(repoPath, ".git", "hooks", "pre-commit")
 }
 
-func installHook(repoPath string, force bool) error {
+func installHook(repoPath string, force, dryRun bool) error {
 	path := hookFilePath(repoPath)
 
 	if _, err := os.Stat(path); err == nil && !force {
 		fmt.Fprintf(os.Stderr, "Warning: %s already exists. Use --force to overwrite.\n", path)
+		return nil
+	}
+
+	if dryRun {
+		if _, err := os.Stat(path); err == nil {
+			fmt.Printf("Would overwrite: %s\n", path)
+		} else {
+			fmt.Printf("Would create: %s\n", path)
+		}
 		return nil
 	}
 
@@ -72,16 +78,6 @@ func installHook(repoPath string, force bool) error {
 	}
 
 	fmt.Printf("Installed actup pre-commit hook at %s\n", path)
-	return nil
-}
-
-func installHookDryRun(repoPath string) error {
-	path := hookFilePath(repoPath)
-	if _, err := os.Stat(path); err == nil {
-		fmt.Printf("Would overwrite: %s\n", path)
-	} else {
-		fmt.Printf("Would create: %s\n", path)
-	}
 	return nil
 }
 

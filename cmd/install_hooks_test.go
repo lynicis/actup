@@ -13,7 +13,7 @@ func TestInstallHooks_CreatesHook(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := installHook(tmpDir, false); err != nil {
+	if err := installHook(tmpDir, false, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -63,7 +63,7 @@ func TestInstallHooks_DryRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := installHookDryRun(tmpDir); err != nil {
+	if err := installHook(tmpDir, false, true); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,7 +86,7 @@ func TestInstallHooks_ExistingHookNoForce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := installHook(tmpDir, false); err != nil {
+	if err := installHook(tmpDir, false, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,7 +111,7 @@ func TestInstallHooks_ExistingHookForce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := installHook(tmpDir, true); err != nil {
+	if err := installHook(tmpDir, true, false); err != nil {
 		t.Fatal(err)
 	}
 
