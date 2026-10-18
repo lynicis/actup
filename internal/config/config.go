@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -88,11 +89,7 @@ func Render(cfg *Config) string {
 
 	if len(cfg.Actions) > 0 {
 		b.WriteString("\nactions:\n")
-		keys := make([]string, 0, len(cfg.Actions))
-		for key := range cfg.Actions {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
+		keys := slices.Sorted(maps.Keys(cfg.Actions))
 		for _, key := range keys {
 			fmt.Fprintf(&b, "  %s: %s\n", formatScalar(key), formatScalar(cfg.Actions[key]))
 		}

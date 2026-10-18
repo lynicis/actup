@@ -4,8 +4,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"maps"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -14,16 +15,10 @@ import (
 	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
-	"github.com/lynicis/actup/internal/token"
 	"github.com/lynicis/actup/internal/upgrader"
 )
 
-var syncOpts struct {
-	paths  []string
-	token  string
-	force  bool
-	dryRun bool
-}
+var syncOpts syncOptions
 
 var syncCmd = &cobra.Command{
 	Use:     "sync",
@@ -85,11 +80,7 @@ func doSync(ctx context.Context, opts syncOptions) error {
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load breaking-change registry: %v\n", err)
 	}
 
-	keys := make([]string, 0, len(cfg.Actions))
-	for key := range cfg.Actions {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(cfg.Actions))
 
 	// Numeric pins need the GitHub API to resolve the latest tag in a major;
 	// exact refs are applied verbatim without any API call.
@@ -105,14 +96,7 @@ func doSync(ctx context.Context, opts syncOptions) error {
 	}
 	var client *github.Client
 	if needsClient {
-		ghToken := opts.token
-		if ghToken == "" {
-			ghToken = token.Resolve("")
-		}
-		if ghToken == "" {
-			fmt.Fprintf(os.Stderr, "\033[33m⚠ No GitHub token set — unauthenticated requests are rate-limited to 60/hour\033[0m\n\n")
-		}
-		client = github.NewClient(ghToken)
+		client = github.NewClient(resolveToken(opts.token))
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -149,23 +133,8 @@ func doSync(ctx context.Context, opts syncOptions) error {
 			continue
 		}
 
-		proceed := true
-		seen := map[string]bool{}
-		for _, ref := range refs {
-			if seen[ref.Current] {
-				continue
-			}
-			seen[ref.Current] = true
-			bcs := breakingChangesFor(registry, key, ref.Current, target)
-			ok, skip := confirmBreaking(key, ref.Current, target, bcs, opts.dryRun, opts.force, reader, isTTY)
-			if skip {
-				breakingSkipped++
-			}
-			if !ok {
-				proceed = false
-				break
-			}
-		}
+		proceed, breakingSkips := confirmBreakingAll(key, refs, target, registry, opts.dryRun, opts.force, reader, isTTY)
+		breakingSkipped += breakingSkips
 		if !proceed {
 			continue
 		}
@@ -173,16 +142,6 @@ func doSync(ctx context.Context, opts syncOptions) error {
 		// Guard against syncing to a version that is itself vulnerable.
 		if !confirmVulnerableTarget(ctx, key, target, opts.dryRun, opts.force, reader, isTTY) {
 			fmt.Printf("⏭ %s: skipped — target %s is vulnerable\n", key, target)
-			continue
-		}
-
-		uniqueCurrents := map[string]bool{}
-		for _, ref := range refs {
-			uniqueCurrents[ref.Current] = true
-		}
-		if len(uniqueCurrents) == 1 && refs[0].Current == target {
-			fmt.Printf("⏭ %s: already at %s\n", key, target)
-			skipped++
 			continue
 		}
 

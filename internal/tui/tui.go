@@ -63,7 +63,6 @@ type progressItem struct {
 	Repo   string
 	NewTag string
 	Status string
-	Error  error
 }
 
 type summaryResult struct {
@@ -287,7 +286,7 @@ func (m model) loadActions() tea.Msg {
 			keys = append(keys, key)
 		}
 	}
-	sort.Strings(keys)
+	sort.Strings(keys) // skipped keys filtered above; sorted for stable display
 	results := github.ResolveAll(context.Background(), client, keys, m.semverMode, m.majorVer, cfgActions)
 
 	var items []ActionItem
@@ -393,7 +392,6 @@ func (m model) applyUpgrades() tea.Msg {
 				Repo:   item.Repo,
 				NewTag: item.Latest,
 				Status: "API error",
-				Error:  fmt.Errorf("%s", item.APIErrorMsg),
 			})
 		} else if item.Selected {
 			upgradedCount++
@@ -579,8 +577,6 @@ func (m model) viewProgress() string {
 			status = dimStyle.Render("⏭")
 		case "API error":
 			status = amberStyle.Render("⚠")
-		default:
-			status = m.spinner.View()
 		}
 
 		fmt.Fprintf(&b, "  %s %s/%s → %s\n", status, p.Owner, p.Repo, p.NewTag)

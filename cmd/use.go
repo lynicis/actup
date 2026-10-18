@@ -12,7 +12,6 @@ import (
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
-	"github.com/lynicis/actup/internal/token"
 	"github.com/lynicis/actup/internal/upgrader"
 )
 
@@ -86,7 +85,7 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load breaking-change registry: %v\n", err)
 	}
 
-	client := clientForSpecs(ctx, specs, opts.token)
+	client := clientForSpecs(specs, opts.token)
 	reader := bufio.NewReader(os.Stdin)
 	isTTY := isTerminal()
 
@@ -152,7 +151,7 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 
 // clientForSpecs returns a GitHub client, or nil when no spec needs one
 // (all specs carry a verbatim ref, so no API calls are required).
-func clientForSpecs(ctx context.Context, specs []actionSpec, ghToken string) *github.Client {
+func clientForSpecs(specs []actionSpec, ghToken string) *github.Client {
 	needsClient := false
 	for _, spec := range specs {
 		if spec.Ref == "" || spec.Ref == "latest" {
@@ -167,31 +166,14 @@ func clientForSpecs(ctx context.Context, specs []actionSpec, ghToken string) *gi
 	if !needsClient {
 		return nil
 	}
-	if ghToken == "" {
-		ghToken = token.Resolve("")
-	}
-	if ghToken == "" {
-		fmt.Fprintf(os.Stderr, "\033[33m⚠ No GitHub token set — unauthenticated requests are rate-limited to 60/hour\033[0m\n\n")
-	}
-	return github.NewClient(ghToken)
+	return github.NewClient(resolveToken(ghToken))
 }
 
 // checkUseBreaking warns about breaking changes for every distinct current
 // version used with the action and returns whether to proceed.
 func checkUseBreaking(key string, refs []parser.ActionRef, target string, registry *breakingchanges.Registry, opts useOptions, reader *bufio.Reader, isTTY bool) bool {
-	seen := map[string]bool{}
-	for _, ref := range refs {
-		if seen[ref.Current] {
-			continue
-		}
-		seen[ref.Current] = true
-		bcs := breakingChangesFor(registry, key, ref.Current, target)
-		proceed, _ := confirmBreaking(key, ref.Current, target, bcs, opts.dryRun, opts.force, reader, isTTY)
-		if !proceed {
-			return false
-		}
-	}
-	return true
+	proceed, _ := confirmBreakingAll(key, refs, target, registry, opts.dryRun, opts.force, reader, isTTY)
+	return proceed
 }
 
 // applyUseToFileRefs rewrites every workflow reference for the action to

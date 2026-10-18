@@ -16,6 +16,7 @@ import (
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/scanner"
+	"github.com/lynicis/actup/internal/token"
 	"github.com/lynicis/actup/internal/vulnscanner"
 )
 
@@ -148,6 +149,40 @@ func confirmBreaking(action, from, to string, bcs []breakingchanges.BreakingChan
 		return false, true
 	}
 	return true, false
+}
+
+// confirmBreakingAll warns about breaking changes for every distinct
+// current version used with the action. It returns whether to proceed and
+// how many distinct versions were declined.
+func confirmBreakingAll(key string, refs []parser.ActionRef, target string, registry *breakingchanges.Registry, dryRun, force bool, reader *bufio.Reader, isTTY bool) (proceed bool, skipped int) {
+	seen := map[string]bool{}
+	for _, ref := range refs {
+		if seen[ref.Current] {
+			continue
+		}
+		seen[ref.Current] = true
+		bcs := breakingChangesFor(registry, key, ref.Current, target)
+		ok, skip := confirmBreaking(key, ref.Current, target, bcs, dryRun, force, reader, isTTY)
+		if skip {
+			skipped++
+		}
+		if !ok {
+			return false, skipped
+		}
+	}
+	return true, skipped
+}
+
+// resolveToken returns the GitHub token to use: an explicit flag value,
+// the GITHUB_TOKEN env var, or the gh CLI — warning when nothing resolves.
+func resolveToken(flagToken string) string {
+	if flagToken == "" {
+		flagToken = token.Resolve("")
+	}
+	if flagToken == "" {
+		fmt.Fprintf(os.Stderr, "\033[33m⚠ No GitHub token set — unauthenticated requests are rate-limited to 60/hour\033[0m\n\n")
+	}
+	return flagToken
 }
 
 // isTerminal reports whether stdin is an interactive terminal.

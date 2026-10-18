@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -12,7 +14,6 @@ import (
 	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
-	"github.com/lynicis/actup/internal/token"
 )
 
 var lsOpts struct {
@@ -97,11 +98,7 @@ func runLsDetail(grouped map[string][]parser.ActionRef, cfgActions map[string]st
 }
 
 func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, cfgActions map[string]string) error {
-	keys := make([]string, 0, len(grouped))
-	for key := range grouped {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(grouped))
 
 	var latest map[string]string
 	if lsOpts.outdated {
@@ -186,14 +183,7 @@ func summarizeActionVersions(refs []parser.ActionRef) string {
 // resolveLatestForAll resolves the latest version for every action key,
 // honoring config pins the same way --check does.
 func resolveLatestForAll(ctx context.Context, keys []string, cfgActions map[string]string) (map[string]string, error) {
-	ghToken := lsOpts.token
-	if ghToken == "" {
-		ghToken = token.Resolve("")
-	}
-	if ghToken == "" {
-		fmt.Fprintf(os.Stderr, "\033[33m⚠ No GitHub token set — unauthenticated requests are rate-limited to 60/hour\033[0m\n\n")
-	}
-
+	ghToken := resolveToken(lsOpts.token)
 	client := github.NewClient(ghToken)
 
 	latest := make(map[string]string, len(keys))

@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lynicis/actup/internal/config"
-	"github.com/lynicis/actup/internal/token"
 )
 
 var outdatedOpts struct {
@@ -44,10 +43,7 @@ func init() {
 func runOutdated(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
-	ghToken := outdatedOpts.token
-	if ghToken == "" {
-		ghToken = token.Resolve("")
-	}
+	ghToken := resolveToken(outdatedOpts.token)
 
 	cfg, err := config.LoadDefault()
 	if err != nil {

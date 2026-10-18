@@ -5,8 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
-	"sort"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -149,11 +150,7 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 		cfgActions = cfg.Actions
 	}
 
-	keys := make([]string, 0, len(grouped))
-	for key := range grouped {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(grouped))
 	results := github.ResolveAll(ctx, ghClient, keys, semverMode, majorVer, cfgActions)
 
 	upgraded := 0
@@ -251,11 +248,7 @@ func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, s
 		cfgActions = cfg.Actions
 	}
 
-	keys := make([]string, 0, len(grouped))
-	for key := range grouped {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(grouped))
 	results := github.ResolveAll(ctx, ghClient, keys, semverMode, majorVer, cfgActions)
 
 	for _, r := range results {
