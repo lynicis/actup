@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Added
+- `actup audit` — vulnerability scanning for GitHub Actions workflows against the OSV.dev advisory database (GitHub Actions ecosystem):
+  - Reports advisory ID, severity, summary, and first fixed version per usage site (`file:line`).
+  - `--json` emits machine-readable output for CI pipelines.
+  - Exits `1` when vulnerable versions are found, `2` when OSV is unreachable.
+  - Client-side version-range matching (OSV does not match versions server-side for this ecosystem), with `v`-prefix normalization and support for `introduced`/`fixed`/`last_affected` events and multiple vulnerable intervals.
+  - New `internal/vulnscanner` package: batch queries (`querybatch`), parallel advisory-detail fetches (capped at 5), case-insensitive package matching, and withdrawn-advisory filtering.
+  - Inline warnings in the `--no-tui`/`--check` upgrade flows and a `⚠ vulnerable` badge with detail view in the interactive TUI.
 - Version-manager subcommands (nvm/fvm style):
   - `actup use <action>[@<ref>]` — sets an action's version across all workflows and records the pin in `.actup.yaml` by default (`--no-save` to skip, `--dry-run` to preview). Ref forms: `@vN` verbatim, `@N` resolved to latest in major, `@latest` per tag mode, others verbatim.
   - `actup pin <action>[@<ref>]` and `actup unpin <action>` — manage manifest pins without touching workflows; `pin` without a ref pins the version currently in use.

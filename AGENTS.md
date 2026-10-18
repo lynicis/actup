@@ -12,15 +12,16 @@
 Standard Go CLI layout using Cobra:
 
 - `main.go` → `cmd/root.go` orchestrates packages
-- `cmd/` — root command (scan + upgrade flow) plus version-manager subcommands: `use`, `pin`/`unpin`, `ls`, `sync`, `init`, `outdated` (one file each) and shared helpers in `cmd/common.go` (workflow loading, `actionSpec` parsing, ref resolution, breaking-change confirm)
+- `cmd/` — root command (scan + upgrade flow) plus version-manager subcommands: `use`, `pin`/`unpin`, `ls`, `sync`, `init`, `outdated` (one file each), `audit` (OSV.dev vulnerability scan), and shared helpers in `cmd/common.go` (workflow loading, `actionSpec` parsing, ref resolution, breaking-change confirm, vuln warnings)
 - `internal/scanner` — discovers `.yml`/`.yaml` workflow files (default: `.github/workflows/`)
 - `internal/parser` — extracts `uses:` refs; skips `./local`, `docker://`, and full SHA commits
 - `internal/github` — GitHub API client (`go-github/v62`); fetches latest tags with dual mode (major-tag or full semver) and in-memory cache
 - `internal/token` — resolves GitHub token via flag → `GITHUB_TOKEN` env → `gh auth token` CLI fallback
 - `internal/breakingchanges` — embedded YAML registry (`//go:embed registry.yaml`) for known breaking changes between major versions; uses `goccy/go-yaml` for parsing
 - `internal/config` — loads `.actup.yaml`/`.actup.yml` (manifest: `major` + per-action `actions` pins/skip); also saves it via deterministic `Render`/`Save`/`SaveDefault` (comments are not preserved; schema header is emitted; numeric-looking values are quoted)
-- `internal/tui` — Bubble Tea interactive checklist with detail view for breaking changes
+- `internal/tui` — Bubble Tea interactive checklist with detail view for breaking changes and vulnerabilities
 - `internal/upgrader` — atomic file edits via temp-file + rename; supports both single-tag and per-action upgrade maps
+- `internal/vulnscanner` — OSV.dev advisory client for the GitHub Actions ecosystem: `querybatch` lookups plus parallel `/vulns/{id}` detail fetches, with client-side version-range matching (OSV does not match versions server-side for this ecosystem)
 
 ## Developer commands
 
@@ -67,6 +68,7 @@ make install               # go install .
 - Default scan target is `.github/workflows` in the current working directory when no `--path` is given.
 - **Root flags are local, not persistent** — each subcommand re-declares the flags it needs. Do not promote root flags to `PersistentFlags()`: the `version` subcommand defines `-s/--short`, which would collide with root's `-s/--semver` and panic at runtime.
 - **Version-manager command semantics** (nvm/fvm style):
+  - `audit` — checks action refs against OSV.dev (GitHub Actions ecosystem); `--json` for machine output; exits 1 on findings, 2 when OSV is unreachable. Matching is client-side because OSV ignores the `version` field for this ecosystem; package names are lowercased (OSV is case-sensitive), subpath actions are queried by `owner/repo`, and withdrawn advisories are skipped. The TUI shows a `⚠ vulnerable` badge with detail view; `--no-tui`/`--check` print warnings before upgrading.
   - `use <action>[@<ref>]` — rewrites all workflow refs to the target version and saves the pin to `.actup.yaml` by default (`--no-save` opts out, `--dry-run` writes nothing). Ref forms: `@vN` verbatim, `@N` → latest tag in major N via API, `@latest`/none → latest per tag mode, anything else verbatim.
   - `pin`/`unpin` — edit `.actup.yaml` only; `pin` without `@ref` pins the most-used version found in workflows.
   - `sync` (alias `install`) — applies manifest pins to workflows: exact refs verbatim, numeric majors resolved via API, `skip` ignored. Honors `--dry-run`/`--force`.

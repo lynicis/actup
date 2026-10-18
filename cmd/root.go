@@ -47,8 +47,10 @@ or use the version-manager subcommands:
   init      bootstrap .actup.yaml from your current workflows
   sync      apply .actup.yaml pins to all workflows
   outdated  list actions that can be upgraded
+  audit     check action versions against known vulnerabilities
 
-It detects known breaking changes between major versions and warns before upgrading.`,
+It detects known breaking changes between major versions and warns before
+upgrading, and checks workflows against OSV.dev advisories.`,
 	RunE: run,
 }
 
@@ -110,11 +112,17 @@ func run(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Vulnerability audit against OSV.dev. Warnings only: network failures
+	// degrade gracefully so the upgrade flow still works offline. The TUI
+	// performs its own scan during loading instead (stderr output would be
+	// hidden by the alt screen).
 	if checkFlag {
+		printVulnWarnings(ctx, actions)
 		return runCheck(ctx, actions, githubToken, semverMode, majorVer, cfg)
 	}
 
 	if noTUI {
+		printVulnWarnings(ctx, actions)
 		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force, cfg)
 	}
 

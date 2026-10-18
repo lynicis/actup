@@ -10,6 +10,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/lynicis/actup/internal/parser"
+	"github.com/lynicis/actup/internal/vulnscanner"
 )
 
 func TestInitReturnsCommand(t *testing.T) {
@@ -279,4 +280,52 @@ func stripANSI(s string) string {
 		b.WriteByte(c)
 	}
 	return b.String()
+}
+
+func TestViewChecklistVulnerableBadge(t *testing.T) {
+	m := model{
+		state: stateChecklist,
+		items: []ActionItem{
+			{
+				Owner: "tj-actions", Repo: "changed-files", Current: "v40", Latest: "v47",
+				Selected: true, HasVulns: true,
+				Vulns: []vulnscanner.Vulnerability{
+					{ID: "GHSA-TEST-1", Severity: "HIGH", Summary: "command injection", Fixed: "46.0.1"},
+				},
+			},
+		},
+		actions: []parser.ActionRef{{File: "ci.yml"}},
+	}
+
+	output := m.viewChecklist()
+	clean := stripANSI(output)
+
+	if !strings.Contains(clean, "vulnerable") {
+		t.Errorf("expected vulnerable badge in checklist, got %q", clean)
+	}
+}
+
+func TestViewDetailVulnerabilities(t *testing.T) {
+	m := model{
+		state:      stateDetail,
+		detailItem: 0,
+		items: []ActionItem{
+			{
+				Owner: "tj-actions", Repo: "changed-files", Current: "v40", Latest: "v47",
+				HasVulns: true,
+				Vulns: []vulnscanner.Vulnerability{
+					{ID: "GHSA-TEST-1", Severity: "HIGH", Summary: "command injection", Fixed: "46.0.1", URL: "https://osv.dev/vulnerability/GHSA-TEST-1"},
+				},
+			},
+		},
+	}
+
+	output := m.viewDetail()
+	clean := stripANSI(output)
+
+	for _, want := range []string{"Vulnerabilities", "GHSA-TEST-1", "HIGH", "fixed in 46.0.1", "command injection"} {
+		if !strings.Contains(clean, want) {
+			t.Errorf("detail view missing %q in output:\n%s", want, clean)
+		}
+	}
 }

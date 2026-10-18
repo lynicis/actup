@@ -16,6 +16,7 @@ import (
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/scanner"
+	"github.com/lynicis/actup/internal/vulnscanner"
 )
 
 // loadWorkflowActions discovers workflow files under the given paths and
@@ -162,4 +163,41 @@ func breakingChangesFor(registry *breakingchanges.Registry, action, from, to str
 		return nil
 	}
 	return registry.Check(action, from, to)
+}
+
+// printVulnWarnings scans the given action refs against OSV.dev and prints a
+// warning for every usage of a known-vulnerable version. Failures (e.g. no
+// network) degrade gracefully: a short notice is printed and the caller's
+// flow continues.
+func printVulnWarnings(ctx context.Context, actions []parser.ActionRef) {
+	if len(actions) == 0 {
+		return
+	}
+
+	client := vulnscanner.NewClient("")
+	findings, err := client.Scan(ctx, actions)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Vulnerability check unavailable: %v\n", err)
+		return
+	}
+	if len(findings) == 0 {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "\n⚠ Vulnerable action versions found (%d usage site(s)):\n", len(findings))
+	for _, f := range findings {
+		fmt.Fprintf(os.Stderr, "  %s:%d: %s/%s@%s\n", f.File, f.Line, f.Owner, f.Repo, f.Ref)
+		for _, v := range f.Vulns {
+			severity := v.Severity
+			if severity == "" {
+				severity = "UNKNOWN"
+			}
+			fixed := ""
+			if v.Fixed != "" {
+				fixed = fmt.Sprintf(", fixed in %s", v.Fixed)
+			}
+			fmt.Fprintf(os.Stderr, "    • %s [%s]%s — %s\n", v.ID, severity, fixed, v.Summary)
+		}
+	}
+	fmt.Fprintf(os.Stderr, "  Run 'actup audit' for details, or upgrade with 'actup use <action>@latest'.\n\n")
 }

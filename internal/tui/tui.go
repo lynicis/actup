@@ -15,6 +15,7 @@ import (
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/upgrader"
+	"github.com/lynicis/actup/internal/vulnscanner"
 )
 
 var (
@@ -24,6 +25,7 @@ var (
 	dimStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	greenStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("76"))
 	amberStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	redStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
 	headerStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
 	footerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 )
@@ -51,6 +53,9 @@ type ActionItem struct {
 	APIErrorMsg     string
 	BreakingChanges []breakingchanges.BreakingChange
 	HasBreaking     bool
+	Vulns           []vulnscanner.Vulnerability
+	HasVulns        bool
+	VulnErrorMsg    string
 }
 
 type progressItem struct {
@@ -353,6 +358,26 @@ func (m model) loadActions() tea.Msg {
 		items = append(items, item)
 	}
 
+	// Vulnerability audit against OSV.dev. Failures degrade gracefully to
+	// an amber note so the checklist still loads offline.
+	vulnClient := vulnscanner.NewClient("")
+	findings, err := vulnClient.Scan(context.Background(), m.actions)
+	if err != nil {
+		for i := range items {
+			items[i].VulnErrorMsg = err.Error()
+		}
+	} else {
+		for _, f := range findings {
+			key := strings.ToLower(f.Owner + "/" + f.Repo)
+			for i := range items {
+				if strings.ToLower(items[i].Owner+"/"+items[i].Repo) == key {
+					items[i].Vulns = f.Vulns
+					items[i].HasVulns = true
+				}
+			}
+		}
+	}
+
 	return actionsLoadedMsg{
 		items: items,
 	}
@@ -478,6 +503,10 @@ func (m model) viewChecklist() string {
 			suffix += " " + amberStyle.Render("⚠ breaking changes")
 		}
 
+		if item.HasVulns {
+			suffix += " " + redStyle.Render("⚠ vulnerable")
+		}
+
 		if i == m.cursor {
 			style = cursorStyle
 		}
@@ -510,6 +539,48 @@ func (m model) viewDetail() string {
 	var b strings.Builder
 
 	item := m.items[m.detailItem]
+
+	if item.HasVulns {
+		b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Vulnerabilities", item.Owner, item.Repo)))
+		b.WriteString("\n\n")
+
+		fmt.Fprintf(&b, "  current version: %s\n\n", item.Current)
+
+		for _, v := range item.Vulns {
+			severity := v.Severity
+			if severity == "" {
+				severity = "UNKNOWN"
+			}
+			fixed := "no fix known"
+			if v.Fixed != "" {
+				fixed = "fixed in " + v.Fixed
+			}
+			b.WriteString(redStyle.Render(fmt.Sprintf("  ⚠ %s [%s] (%s)", v.ID, severity, fixed)))
+			b.WriteString("\n")
+			if v.Summary != "" {
+				b.WriteString(fmt.Sprintf("    %s\n", v.Summary))
+			}
+			if v.URL != "" {
+				b.WriteString(dimStyle.Render(fmt.Sprintf("    %s\n", v.URL)))
+			}
+			b.WriteString("\n")
+		}
+
+		if len(item.BreakingChanges) > 0 {
+			b.WriteString(headerStyle.Render("  Breaking changes when upgrading to " + item.Latest))
+			b.WriteString("\n\n")
+			for _, bc := range item.BreakingChanges {
+				b.WriteString(amberStyle.Render(fmt.Sprintf("  ⚠ %s", bc.Message)))
+				b.WriteString("\n")
+			}
+		}
+
+		b.WriteString("\n")
+		b.WriteString(footerStyle.Render("  [esc] back"))
+		b.WriteString("\n")
+
+		return b.String()
+	}
 
 	b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Breaking Changes", item.Owner, item.Repo)))
 	b.WriteString("\n\n")

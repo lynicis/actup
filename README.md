@@ -48,6 +48,7 @@ actup --dry-run
 ## Features
 
 - **Version manager commands** — `use`, `pin`/`unpin`, `ls`, `init`, `sync`, and `outdated` give you nvm-style control over action versions
+- **Vulnerability audit** — `actup audit` checks every action version against the OSV.dev advisory database (GitHub Actions ecosystem); the TUI and non-interactive flows also warn inline
 - **Manifest as source of truth** — `.actup.yaml` declares your action versions; `sync` applies it to every workflow
 - **Workflow discovery** — recursively finds `.yml` / `.yaml` files under `.github/workflows/`
 - **Interactive TUI** — Bubble Tea–powered checklist with select-all, per-action toggle, and breaking-change detail view
@@ -73,6 +74,7 @@ actup --dry-run
 - [Configuration](#configuration)
 - [Pre-commit Hooks](#pre-commit-hooks)
 - [Breaking Changes](#breaking-changes)
+- [Vulnerability Audit](#vulnerability-audit)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -188,6 +190,7 @@ actup
 | `actup sync` | `fvm install` | Apply all `.actup.yaml` pins to your workflows |
 | `actup ls` | `nvm ls` | List actions in use, their versions, and pin status (`--outdated` adds latest versions) |
 | `actup outdated` | `nvm outdated` | List actions that can be upgraded (exits non-zero if any) |
+| `actup audit` | `npm audit` | Check action versions against known vulnerabilities (exits non-zero if any) |
 | `actup` | `nvm upgrade` | Interactively upgrade everything to the latest versions (TUI) |
 
 ### Ref resolution in `use`
@@ -319,6 +322,20 @@ repos:
 
 The registry lives in [`internal/breakingchanges/registry.yaml`](internal/breakingchanges/registry.yaml). Contributions welcome — if you encounter a breaking change not in the registry, please open a PR.
 
+## Vulnerability Audit
+
+`actup audit` checks every `uses:` reference in your workflows against the [OSV.dev](https://osv.dev) advisory database (GitHub Actions ecosystem). It reports the advisory ID, severity, and the first fixed version:
+
+```bash
+actup audit            # human-readable output
+actup audit --json     # machine-readable output for CI
+```
+
+- Exits `1` when vulnerable action versions are found, `2` when the OSV database cannot be reached — the same convention as `actup outdated`.
+- Vulnerability matching happens client-side against OSV range data, so major-tag refs (e.g. `@v4`) are matched correctly even though OSV only indexes full semver tags.
+- Actions marked `skip` in `.actup.yaml` are excluded.
+- The interactive TUI and `--no-tui` upgrade flows also warn inline: the TUI shows a `⚠ vulnerable` badge (press `i` for details), and non-interactive runs print warnings before upgrading.
+
 ## Roadmap
 
 - [x] Interactive TUI with checklist selection
@@ -331,6 +348,7 @@ The registry lives in [`internal/breakingchanges/registry.yaml`](internal/breaki
 - [x] Config file support (`.actup.yaml`)
 - [x] Breaking-change detection with embedded registry
 - [x] Full semver tag resolution (`--semver`)
+- [x] Vulnerability audit against OSV.dev (`actup audit`)
 - [ ] Integration with `dependabot`-style grouped updates
 - [ ] Pre-upgrade hooks / custom validation
 
