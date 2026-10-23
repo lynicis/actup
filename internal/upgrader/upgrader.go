@@ -45,7 +45,7 @@ func replaceInFile(file string, action parser.ActionRef, newTag string) error {
 			// rewrite.
 			pattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(usesPath(action)) + `@` + regexp.QuoteMeta(action.Current))
 			if pattern.MatchString(line) {
-				lines[i] = pattern.ReplaceAllString(line, usesPath(action)+"@"+newTag)
+				lines[i] = pattern.ReplaceAllLiteralString(line, usesPath(action)+"@"+newTag)
 				found = true
 			}
 			break
