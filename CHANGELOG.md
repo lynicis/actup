@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Trailing YAML comments on `uses:` lines (e.g. `uses: actions/checkout@v3    # pinned`) are stripped before parsing: rewrites now replace only the ref and preserve the comment, instead of capturing the comment as part of the ref and deleting it. Version listings, outdated checks, and vulnerability matching also see bare refs again; SHA pins with trailing comments are now skipped like bare SHA refs.
+- Rewrites write the target ref verbatim, so refs containing `$` are no longer expanded as regexp capture references.
+
 ## [0.8.1] - 2026-10-18
 
 ### Fixed
