@@ -282,7 +282,7 @@ jobs:
 		Owner:   "google",
 		Repo:    "osv-scanner-action",
 		Path:    "google/osv-scanner-action/osv-scanner-action",
-		Current: "a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0",
+		Current: "a345acffa64b0eaede81a3d9aae6141214d9c8fc",
 		Line:    8,
 		File:    workflowPath,
 	}
@@ -316,7 +316,7 @@ func TestReplaceInFileTabsAndComment(t *testing.T) {
 		Owner:   "google",
 		Repo:    "osv-scanner-action",
 		Path:    "google/osv-scanner-action/osv-scanner-action",
-		Current: "v2.6.0    # v2.6.0 pinned",
+		Current: "v2.6.0",
 		Line:    8,
 		File:    workflowPath,
 	}
@@ -330,8 +330,9 @@ func TestReplaceInFileTabsAndComment(t *testing.T) {
 		t.Fatalf("failed to read updated file: %v", err)
 	}
 
-	if !strings.Contains(string(updated), "uses:\t\tgoogle/osv-scanner-action/osv-scanner-action@v2.7.0") {
-		t.Errorf("expected tab-indented uses line upgraded in place, got:\n%s", string(updated))
+	expectedLine := "uses:\t\tgoogle/osv-scanner-action/osv-scanner-action@v2.7.0    # v2.6.0 pinned"
+	if !strings.Contains(string(updated), expectedLine) {
+		t.Errorf("expected %q upgraded in place with comment preserved, got:\n%s", expectedLine, string(updated))
 	}
 }
 

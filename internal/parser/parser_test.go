@@ -122,6 +122,32 @@ jobs:
 	}
 }
 
+func TestExtractActionsStripsTrailingComment(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "test.yml")
+	content := "name: CI\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses:\t\tactions/checkout@v3    # pinned\n"
+
+	if err := os.WriteFile(workflowPath, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write workflow: %v", err)
+	}
+
+	actions, err := ExtractActions(t.Context(), []string{workflowPath})
+	if err != nil {
+		t.Fatalf("ExtractActions failed: %v", err)
+	}
+
+	if len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(actions))
+	}
+	if actions[0].Current != "v3" {
+		t.Errorf("Current = %q, want %q", actions[0].Current, "v3")
+	}
+	if actions[0].Line != 7 {
+		t.Errorf("Line = %d, want 7", actions[0].Line)
+	}
+}
+
 func TestParseActionRef(t *testing.T) {
 	tests := []struct {
 		uses      string

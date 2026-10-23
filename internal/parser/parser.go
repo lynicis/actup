@@ -21,7 +21,8 @@ type ActionRef struct {
 	File    string
 }
 
-var usesRegex = regexp.MustCompile(`^\s*(?:-\s+)?uses:\s*(.+?)\s*$`)
+// The value stops before a trailing YAML comment so ActionRef.Current is a bare ref.
+var usesRegex = regexp.MustCompile(`^\s*(?:-\s+)?uses:\s*(.+?)(?:\s+#.*)?\s*$`)
 
 func ExtractActions(_ context.Context, files []string) ([]ActionRef, error) {
 	var actions []ActionRef
