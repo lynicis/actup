@@ -1,7 +1,7 @@
 - id: actup-check
   name: Check GitHub Actions versions
   description: Ensures GitHub Actions workflow files reference the latest versions.
-  entry: actup --check --no-tui
+  entry: actup outdated
   language: golang
   types: [yaml]
   pass_filenames: false

@@ -5,7 +5,9 @@
 <h1 align="center">actup</h1>
 
 <p align="center">
-  Keep your GitHub Actions up to date — interactively, safely, and fast.
+  <strong>A version manager for GitHub Actions.</strong> Set, pin, sync, and upgrade
+  <code>uses:</code> refs from one manifest — with breaking-change warnings and
+  OSV.dev vulnerability checks, interactively or in CI.
 </p>
 
 <p align="center">
@@ -13,20 +15,32 @@
   <a href="https://github.com/lynicis/actup/releases"><img src="https://img.shields.io/github/v/release/lynicis/actup?style=for-the-badge" alt="Release"></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/github/go-mod/go-version/lynicis/actup?style=for-the-badge" alt="Go Version"></a>
   <a href="https://github.com/lynicis/actup/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lynicis/actup.svg?style=for-the-badge" alt="License"></a>
-  <a href="https://github.com/lynicis/actup/stargazers"><img src="https://img.shields.io/github/stars/lynicis/actup?style=for-the-badge" alt="Stars"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/lynicis/actup/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+  <a href="https://github.com/lynicis/actup/issues/new?labels=bug&template=bug_report.md">Report Bug</a>
   &middot;
-  <a href="https://github.com/lynicis/actup/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+  <a href="https://github.com/lynicis/actup/issues/new?labels=enhancement&template=feature_request.md">Request Feature</a>
 </p>
 
 ---
 
-`actup` is a **version manager for GitHub Actions** — like `nvm` is for Node or `fvm` for Flutter. Set and pin the versions your workflows use, keep a `.actup.yaml` manifest as the source of truth, and upgrade to the latest versions when you're ready — interactively via a terminal UI, or non-interactively in CI. It detects known breaking changes between major versions and warns you before upgrading.
+**Status:** actively maintained, pre-1.0. Flags and the manifest schema may change
+between minor releases; breaking changes are called out in the
+[changelog](CHANGELOG.md).
+
+`actup` is a **version manager for GitHub Actions** — like `nvm` is for Node or `fvm` for Flutter. Set and pin the versions your workflows use, keep a `.actup.yaml` manifest as the source of truth, and upgrade to the latest versions when you're ready — interactively via a terminal UI, or non-interactively in CI.
+
+## Why actup?
+
+- **Runs locally, on your schedule** — no bot to install and no PR queue. Unlike Dependabot or Renovate, `actup` rewrites workflow files only when you run it.
+- **One manifest drives every workflow** — `.actup.yaml` is the source of truth, and `actup sync` applies it everywhere, with glob and group filters for scoped upgrades.
+- **Checks before writes** — the embedded breaking-change registry and OSV.dev advisories are checked before anything is rewritten.
+- **Complements `gh actions-lock`** — `actup` upgrades the refs; the lockfile integration re-locks, audits transitive dependencies, and shows lock status in `actup ls`.
 
 ## Quick Start
+
+Install `actup` first ([Installation](#installation)), then run these from your repository root:
 
 ```sh
 # Bootstrap a manifest pinning the versions your workflows already use
@@ -45,58 +59,7 @@ actup
 actup --dry-run
 ```
 
-## Features
-
-- **Version manager commands** — `use`, `pin`/`unpin`, `ls`, `init`, `sync`, and `outdated` give you nvm-style control over action versions
-- **Vulnerability audit** — `actup audit` checks every action version against the OSV.dev advisory database (GitHub Actions ecosystem); the TUI and non-interactive flows also warn inline
-- **`actions.lock` integration** — reads `.github/workflows/actions.lock`, scans transitive dependencies in `actup audit`, shows `[locked]` / `[lock stale]` in `actup ls`, and re-locks automatically after workflow edits
-- **GitHub CLI extension** — install with `gh extension install lynicis/actup` and use `gh actup`
-- **Manifest as source of truth** — `.actup.yaml` declares your action versions; `sync` applies it to every workflow
-- **Workflow discovery** — recursively finds `.yml` / `.yaml` files under `.github/workflows/`
-- **Interactive TUI** — Bubble Tea–powered checklist with select-all, per-action toggle, and breaking-change detail view
-- **Non-interactive mode** — `--no-tui` upgrades everything; prompts on TTY for breaking changes (override with `--force`)
-- **Breaking-change detection** — embedded registry of known breaking changes between major versions
-- **Major-tag or full semver** — default resolves `v5`-style tags; `--semver` opts into `v5.3.1` pinning
-- **Commit SHA pinning** — `--sha` (or `sha: true` in the manifest) writes `@<sha> # <tag>`; existing SHA pins stay pinned
-- **Dry-run** — `--dry-run` previews a diff without touching files
-- **Atomic writes** — temp-file + rename prevents partial updates
-- **Concurrent API** — up to 5 parallel GitHub requests with in-memory caching
-- **GitHub CLI fallback** — auto-discovers tokens from `gh auth token` when no env var is set
-
-## Demo
-
-[![asciicast](https://asciinema.org/a/BoLQP1Gt9L0CXvUR.svg?size=big)](https://asciinema.org/a/BoLQP1Gt9L0CXvUR)
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Version Manager](#version-manager)
-- [AI Skill](#ai-skill)
-- [Configuration](#configuration)
-- [Pre-commit Hooks](#pre-commit-hooks)
-- [Breaking Changes](#breaking-changes)
-- [Vulnerability Audit](#vulnerability-audit)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgments](#acknowledgments)
-
 ## Installation
-
-### GitHub CLI Extension
-
-Install `actup` as a [GitHub CLI](https://cli.github.com/) extension and run it as `gh actup`:
-
-```sh
-gh extension install lynicis/actup
-gh actup --help
-gh actup                    # interactive TUI
-gh actup use actions/checkout@v5
-```
-
-All flags and subcommands work unchanged: `gh actup <args>` is equivalent to `actup <args>`.
 
 ### Package Managers
 
@@ -117,16 +80,14 @@ scoop install actup
 go install github.com/lynicis/actup@latest
 ```
 
-**Debian / Ubuntu**:
+**Debian / Ubuntu**: download the `.deb` for your architecture from the [latest release](https://github.com/lynicis/actup/releases/latest), then:
 ```sh
-curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.deb
-sudo dpkg -i actup_latest_linux_amd64.deb
+sudo dpkg -i actup_*_linux_amd64.deb
 ```
 
-**Fedora / RHEL / CentOS**:
+**Fedora / RHEL / CentOS**: download the `.rpm` for your architecture from the [latest release](https://github.com/lynicis/actup/releases/latest), then:
 ```sh
-curl -LO https://github.com/lynicis/actup/releases/latest/download/actup_latest_linux_amd64.rpm
-sudo rpm -i actup_latest_linux_amd64.rpm
+sudo rpm -i actup_*_linux_amd64.rpm
 ```
 
 > Replace `amd64` with `arm64` for ARM systems.
@@ -164,6 +125,27 @@ make install   # optional, installs to $GOPATH/bin
 ### Pre-built Binaries
 
 Download binaries for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
+
+## Features
+
+- **Version manager commands** — `use`, `pin`/`unpin`, `ls`, `init`, `sync`, and `outdated` give you nvm-style control over action versions
+- **Vulnerability audit** — `actup audit` checks every action version against the OSV.dev advisory database (GitHub Actions ecosystem); the TUI and non-interactive flows also warn inline
+- **`actions.lock` integration** — reads `.github/workflows/actions.lock`, scans transitive dependencies in `actup audit`, shows `[locked]` / `[lock stale]` in `actup ls`, and re-locks automatically after workflow edits
+- **Manifest as source of truth** — `.actup.yaml` declares your action versions; `sync` applies it to every workflow
+- **Workflow discovery** — recursively finds `.yml` / `.yaml` files under `.github/workflows/`
+- **Interactive TUI** — Bubble Tea–powered checklist with select-all, per-action toggle, and breaking-change detail view
+- **Non-interactive mode** — `--no-tui` upgrades everything; prompts on TTY for breaking changes (override with `--force`)
+- **Breaking-change detection** — embedded registry of known breaking changes between major versions
+- **Major-tag or full semver** — default resolves `v5`-style tags; `--semver` opts into `v5.3.1` pinning
+- **Commit SHA pinning** — `--sha` (or `sha: true` in the manifest) writes `@<sha> # <tag>`; existing SHA pins stay pinned
+- **Dry-run** — `--dry-run` previews a diff without touching files
+- **Atomic writes** — temp-file + rename prevents partial updates
+- **Concurrent API** — up to 5 parallel GitHub requests with in-memory caching
+- **GitHub CLI fallback** — auto-discovers tokens from `gh auth token` when no env var is set
+
+## Demo
+
+[![asciicast](https://asciinema.org/a/BoLQP1Gt9L0CXvUR.svg?size=big)](https://asciinema.org/a/BoLQP1Gt9L0CXvUR)
 
 ## Usage
 
@@ -299,7 +281,7 @@ gh auth login
 
 ### Config File (`.actup.yaml`)
 
-`.actup.yaml` is your action version manifest — the declared source of truth that `actup sync` applies to your workflows. `actup init` generates it, `actup use` and `actup pin` keep it up to date, and `actup outdated` honor it. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
+`.actup.yaml` is your action version manifest — the declared source of truth that `actup sync` applies to your workflows. `actup init` generates it, `actup use` and `actup pin` keep it up to date, and `actup outdated` honors it. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/lynicis/actup/main/schema.json
@@ -366,12 +348,12 @@ Add to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/lynicis/actup
-    rev: v0.5.0
+    rev: v0.7.0
     hooks:
       - id: actup-check
 ```
 
-> The hook runs `actup outdated` and fails the commit if any actions can be upgraded. Omit `rev` to track `main` for the latest version.
+> The hook runs `actup outdated` and fails the commit if any actions can be upgraded.
 
 ## Breaking Changes
 
@@ -391,7 +373,7 @@ actup audit            # human-readable output
 actup audit --json     # machine-readable output for CI
 ```
 
-- Exits `1` when vulnerable action versions are found, `2` when the OSV database cannot be reached — the same convention as `actup outdated`.
+- Exits `1` when vulnerable action versions are found and `2` when the OSV database cannot be reached.
 - Vulnerability matching happens client-side against OSV range data, so major-tag refs (e.g. `@v4`) are matched correctly even though OSV only indexes full semver tags.
 - Actions marked `skip` in `.actup.yaml` are excluded.
 - The interactive TUI and `--no-tui` upgrade flows also warn inline: the TUI shows a `⚠ vulnerable` badge (press `i` for details), and non-interactive runs print warnings before upgrading.

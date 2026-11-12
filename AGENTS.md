@@ -37,7 +37,7 @@ Tests write to `t.TempDir()`; no network, no fixtures on disk. `github` and `tok
 - **`ActionRef.Version()` is the comparison primitive** for OSV, breaking changes, outdated, `ls`, `init`, and the TUI. Compare through it, not raw strings.
 - **Default tag mode is major** (`v5`); `--semver` opts into full semver. Tag lookup reads 3 pages × 100 and filters non-semver/SHA refs.
 - **Config semantics:** `Pins == nil` means a legacy manifest where every `actions` entry is a constraint; always resolve via `EffectivePins()`. `Save` re-renders deterministically — user comments are lost; numeric-looking values are quoted.
-- **`runCheck` in `root.go` calls `os.Exit(1)`** when outdated entries exist; it is shared by `--check` and `outdated`, so it must not be reused where returning is expected.
+- **`runCheck` in `root.go` calls `os.Exit(1)`** when outdated entries exist; it backs `outdated`, so it must not be reused where returning is expected.
 - **Exit codes in `audit`:** 1 on findings, 2 when OSV is unreachable. Query `owner/repo` lowercased; subpaths stripped.
 - Breaking-change prompts go through `confirmBreaking` (`cmd/common.go`): proceed on dry-run/force, y/N on a TTY, skip otherwise.
 - TUI model updates are easy to race — keep updates pure and rerun `make test`.
