@@ -292,6 +292,87 @@ func TestScanLastAffected(t *testing.T) {
 	}
 }
 
+func TestScanLastKnownAffectedVersionRange(t *testing.T) {
+	// GitHub advisories sometimes encode an upper bound in
+	// database_specific.last_known_affected_version_range instead of an OSV
+	// last_affected event. That open-ended range must not read as "affected
+	// forever"; otherwise every ref at the fixed version is flagged.
+	m := newMockOSV(t)
+	m.addVuln("codeql/action", map[string]any{
+		"id":      "GHSA-LKAVR-1",
+		"summary": "bounded by database_specific",
+		"database_specific": map[string]any{
+			"severity": "HIGH",
+		},
+		"affected": []map[string]any{
+			{
+				"package": map[string]any{"name": "codeql/action", "ecosystem": "GitHub Actions"},
+				"ranges": []map[string]any{
+					{
+						"type": "ECOSYSTEM",
+						"events": []map[string]any{
+							{"introduced": "3.26.11"},
+							{"fixed": "3.28.3"},
+						},
+					},
+				},
+			},
+			{
+				"package": map[string]any{"name": "codeql/action", "ecosystem": "GitHub Actions"},
+				"database_specific": map[string]any{
+					"last_known_affected_version_range": "< 3.0.0",
+				},
+				"ranges": []map[string]any{
+					{
+						"type":   "ECOSYSTEM",
+						"events": []map[string]any{{"introduced": "2.26.11"}},
+					},
+				},
+			},
+		},
+	})
+
+	client := m.client()
+	cases := []struct {
+		ref      string
+		affected bool
+	}{
+		{"v4", false},
+		{"v4.39.3", false},
+		{"v3.39.3", false},
+		{"v3.28.2", true},
+		{"v2.30.0", true},
+	}
+	for _, tc := range cases {
+		actions := []parser.ActionRef{{Owner: "codeql", Repo: "action", Current: tc.ref, File: "wf.yml", Line: 1}}
+		findings, err := client.Scan(context.Background(), actions)
+		if err != nil {
+			t.Fatalf("Scan(%s): %v", tc.ref, err)
+		}
+		if got := len(findings) > 0; got != tc.affected {
+			t.Errorf("ref %s: affected = %v, want %v", tc.ref, got, tc.affected)
+		}
+	}
+}
+
+func TestLastKnownBoundEvent(t *testing.T) {
+	cases := []struct {
+		expr, ref string
+		affected  bool
+	}{
+		{"< 3.0.0", "v2.30.0", true},
+		{"< 3.0.0", "v3.0.0", false},
+		{"<= 3.28.2", "v3.28.2", true},
+		{"<= 3.28.2", "v3.28.3", false},
+	}
+	for _, tc := range cases {
+		events := boundedEvents([]osvEvent{{Introduced: "0"}}, tc.expr)
+		if got := eventsAffect(events, tc.ref); got != tc.affected {
+			t.Errorf("expr %q ref %s: affected = %v, want %v", tc.expr, tc.ref, got, tc.affected)
+		}
+	}
+}
+
 func TestScanWithdrawnAdvisory(t *testing.T) {
 	m := newMockOSV(t)
 	v := simpleVuln("GHSA-WITHDRAWN-1", "wd/pkg", "0", "99")

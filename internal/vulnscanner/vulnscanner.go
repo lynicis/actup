@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -105,6 +106,9 @@ type osvVuln struct {
 			Name      string `json:"name"`
 			Ecosystem string `json:"ecosystem"`
 		} `json:"package"`
+		DatabaseSpecific struct {
+			LastKnownAffectedVersionRange string `json:"last_known_affected_version_range"`
+		} `json:"database_specific"`
 		Ranges []struct {
 			Type   string     `json:"type"`
 			Events []osvEvent `json:"events"`
@@ -252,7 +256,7 @@ func (v *osvVuln) affects(actionKey, ref string) bool {
 			if r.Type != "ECOSYSTEM" {
 				continue
 			}
-			if eventsAffect(r.Events, ref) {
+			if eventsAffect(boundedEvents(r.Events, aff.DatabaseSpecific.LastKnownAffectedVersionRange), ref) {
 				return true
 			}
 		}
@@ -278,6 +282,31 @@ func eventsAffect(events []osvEvent, ref string) bool {
 		}
 	}
 	return false
+}
+
+// lastKnownBoundEvent translates GitHub's non-standard
+// database_specific.last_known_affected_version_range into an OSV event that
+// closes an otherwise open-ended range. GitHub advisories put the upper bound
+// there instead of in a last_affected event.
+func lastKnownBoundEvent(expr string) *osvEvent {
+	expr = strings.TrimSpace(expr)
+	if v, ok := strings.CutPrefix(expr, "<="); ok {
+		return &osvEvent{LastAffected: strings.TrimSpace(v)}
+	}
+	if v, ok := strings.CutPrefix(expr, "<"); ok {
+		return &osvEvent{Fixed: strings.TrimSpace(v)}
+	}
+	return nil
+}
+
+// boundedEvents appends the advisory's upper bound, when present, so an
+// open-ended range does not read as "affected forever".
+func boundedEvents(events []osvEvent, lastKnown string) []osvEvent {
+	bound := lastKnownBoundEvent(lastKnown)
+	if bound == nil {
+		return events
+	}
+	return append(slices.Clone(events), *bound)
 }
 
 // interval is a vulnerable version range [start, end). An empty end means
@@ -431,7 +460,7 @@ func (v *osvVuln) fixedFor(actionKey, ref string) string {
 			if r.Type != "ECOSYSTEM" {
 				continue
 			}
-			for _, iv := range buildIntervals(r.Events) {
+			for _, iv := range buildIntervals(boundedEvents(r.Events, aff.DatabaseSpecific.LastKnownAffectedVersionRange)) {
 				if !inInterval(ref, iv) || iv.end == "" {
 					continue
 				}
