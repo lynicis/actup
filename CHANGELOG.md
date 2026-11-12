@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-11-13
+
+### Added
+- **Managed manifests.** `.actup.yaml` now separates recorded workflow state (`actions`) from user-authored constraints (`pins`). Managed manifests resolve constraints through `EffectivePins()`, while legacy manifests without `pins` keep behaving exactly as before. Numeric majors and `skip` remain constraints even in the recorded section, and upgrades write new versions back deterministically.
+- **Commit SHA pinning.** `--sha` (or `sha: true` in the manifest) writes `@<40-hex-sha> # <tag>`. Existing SHA pins with trailing comments are parsed, compared by their tag, and kept in the per-site style by `actup`, `use`, `sync`, `audit --fix`, and the TUI.
+- **`actup audit --fix`.** Upgrades vulnerable direct refs to a version that clears every advisory affecting them, never downgrades, leaves advisories without a fixed version untouched, records the result in `.actup.yaml`, and reports remaining transitive findings. Supports `--dry-run`, `--force`, `--semver`, and `--sha`; `--json` cannot be combined with `--fix`.
+- **Action filters.** Positional glob filters (`actup 'actions/*'`, using `path.Match`) and the repeatable `--group` flag select a subset of actions; the manifest's new `groups` section defines named glob sets. Filters combine as a union.
+- **Composite and root actions.** Default discovery now includes `.github/actions/**/action.yml|yaml` and a repository-root `action.yml|yaml`; explicit `-p` paths still scan only what they name.
+- **`actions.lock` integration.** After workflow writes, `actup` runs `gh actions-lock` to refresh `.github/workflows/actions.lock`; dry runs and no-op runs skip it, and a missing `gh` or extension only warns. `actup audit` also scans transitive lockfile dependencies, marking them `(transitive)` in text and `"transitive": true` in JSON, while `actup ls` shows `[locked]` / `[lock stale]`.
+- **`gh` CLI extension packaging.** Releases ship `gh-actup-<os>-<arch>[.exe]` binaries, and the CLI detects `gh actup` invocations so help and usage use the right name.
+- **Richer breaking-change detection.** `with:` inputs are parsed and matched against input-specific registry entries (runtime and behavior types), every distinct version in use is compared, and multi-major jumps surface all crossed entries.
+- **Build and supply chain.** `make install` installs to `$GOBIN`, and developer tools run through Go's tool directive. CI adds hadolint, Trivy config/image, zizmor, gitleaks, dependency-review, and `actup audit` gates with SARIF upload; releases scan the image before publishing, generate SBOMs, sign images keylessly with cosign, and attest archive provenance. The Docker image now runs as UID 65532 with a version healthcheck.
+
+### Changed
+- Batch workflow rewrites now run once per file, preserve permission bits, and produce deterministic dry-run output.
+- `schema.json` adds the `sha`, `pins`, and `groups` properties.
+
+### Fixed
+- OSV ranges that are open-ended in the advisory database are now bounded by `database_specific.last_known_affected_version_range`, so later major versions are no longer reported as vulnerable.
+- `actup audit --json` exits with status 2 when OSV is unreachable, matching text mode.
+- Lockfile integration recognizes narrowed refs in `actup ls`, finds `actions.lock` when `--path` points at `.github`, and keeps TUI relocking independent of manifest-save failures.
+- `actup outdated` is used by the pre-commit hook; the removed root `--check` flag is no longer referenced.
+
+### Security
+- Hardened the `github-actions-updater` skill against indirect prompt injection (Snyk W011): version resolution only consumes `gh api` / `git ls-remote` output matching a strict semver pattern and selects a single version in the pipeline, so raw tag lists, JSON, and release-page text never reach agent context.
+
 ## [0.8.2] - 2026-10-23
 
 ### Fixed
