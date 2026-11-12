@@ -31,12 +31,24 @@ between minor releases; breaking changes are called out in the
 
 `actup` is a **version manager for GitHub Actions** — like `nvm` is for Node or `fvm` for Flutter. Set and pin the versions your workflows use, keep a `.actup.yaml` manifest as the source of truth, and upgrade to the latest versions when you're ready — interactively via a terminal UI, or non-interactively in CI.
 
+## Demo
+
+![actup TUI: selecting upgrades, opening the breaking-change details for actions/cache, and applying the selected upgrades](docs/demo.gif)
+
+The TUI lists each action with its current → latest version, flags `⚠ breaking changes` and `⚠ vulnerable` inline, opens details with `i`, and writes files only when you press `enter`.
+
 ## Why actup?
 
-- **Runs locally, on your schedule** — no bot to install and no PR queue. Unlike Dependabot or Renovate, `actup` rewrites workflow files only when you run it.
-- **One manifest drives every workflow** — `.actup.yaml` is the source of truth, and `actup sync` applies it everywhere, with glob and group filters for scoped upgrades.
-- **Checks before writes** — the embedded breaking-change registry and OSV.dev advisories are checked before anything is rewritten.
-- **Complements `gh actions-lock`** — `actup` upgrades the refs; the lockfile integration re-locks, audits transitive dependencies, and shows lock status in `actup ls`.
+Action versions live inside every workflow file, so upgrades are manual and uneven: nobody agrees on when to bump, and a major jump can silently change behavior. Dependabot and Renovate automate that by opening PRs on a schedule. `actup` gives you the same upgrade machinery as a command you run yourself — locally or in CI — so nothing is rewritten until you ask, and every upgrade is one reviewable change.
+
+| | `actup` | [Dependabot](https://docs.github.com/en/code-security/dependabot) | [Renovate](https://docs.renovatebot.com/) | [`gh actions-lock`](https://github.com/github/actions-lockfile) |
+|---|---|---|---|---|
+| What it does | Upgrades, pins, and syncs `uses:` refs from a manifest | Opens PRs when an ecosystem has a newer version | Opens PRs from configurable rules | Writes `actions.lock` for reproducible, transitive pinning |
+| When it runs | You run it — locally or in CI | On GitHub's schedule | On a schedule or webhook | You run it |
+| Where versions live | `.actup.yaml` (source of truth) | `dependabot.yml` (update policy) | `renovate.json` (rules) | `actions.lock` (resolved state) |
+| Breaking-change warnings | Embedded registry + OSV.dev advisories, checked before writing | Release notes in the PR | Release notes in the PR | — |
+
+`gh actions-lock` and `actup` are complements, not alternatives: the lockfile records resolved versions, including transitive dependencies, and never upgrades anything. `actup` upgrades the direct refs, then re-runs `gh actions-lock` so the lockfile stays fresh; `actup audit` also checks the lockfile's transitive refs, and `actup ls` marks each action `[locked]` or `[lock stale]`. If you want a bot that opens PRs on every upstream release, use Dependabot or Renovate — `actup` is the imperative counterpart, built for reviewable upgrades and CI gates.
 
 ## Quick Start
 
@@ -126,6 +138,66 @@ make install   # optional, installs to $GOPATH/bin
 
 Download binaries for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
 
+## Before and after
+
+Starting workflow:
+
+```yaml
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: coverage.out
+      - run: go test ./...
+```
+
+`actup --no-tui` resolves the latest major tags and checks each jump against the breaking-change registry before writing:
+
+```console
+$ actup --no-tui
+⚠ actions/cache: v3 → v6 has breaking changes:
+  • cache v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer.
+  • cache v4 requires the cache service v2 backend.
+  Apply anyway? [y/N] n
+✓ actions/checkout: v4 → v7
+
+⚠ actions/setup-go: v4 → v7 has breaking changes:
+  • setup-go v5 runs on Node 20; self-hosted runners must be v2.308.0 or newer.
+  Apply anyway? [y/N] n
+
+⚠ actions/upload-artifact: v3 → v7 has breaking changes:
+  • upload-artifact v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer.
+  • upload-artifact v4 artifact names are immutable, and hidden files are excluded by default.
+  Apply anyway? [y/N] n
+
+1 action upgraded, 0 skipped (up to date), 0 skipped (API error), 3 skipped (breaking changes)
+```
+
+Answering `y` applies that upgrade; answering `n` skips it. A separate `actup --no-tui --force` run applies the remaining three without prompting. The workflow then reads — `with:` inputs, step order, and unrelated steps untouched:
+
+```yaml
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+      - uses: actions/cache@v6
+      - uses: actions/upload-artifact@v7
+```
+
+`.actup.yaml` records the new versions, so `actup outdated`, `actup sync`, and the lockfile stay in step. Writes are atomic (temp file + rename), and `--dry-run` reports the same upgrades without touching anything.
+
 ## Features
 
 - **Version manager commands** — `use`, `pin`/`unpin`, `ls`, `init`, `sync`, and `outdated` give you nvm-style control over action versions
@@ -142,10 +214,6 @@ Download binaries for Linux, macOS, or Windows from the [Releases](https://githu
 - **Atomic writes** — temp-file + rename prevents partial updates
 - **Concurrent API** — up to 5 parallel GitHub requests with in-memory caching
 - **GitHub CLI fallback** — auto-discovers tokens from `gh auth token` when no env var is set
-
-## Demo
-
-[![asciicast](https://asciinema.org/a/BoLQP1Gt9L0CXvUR.svg?size=big)](https://asciinema.org/a/BoLQP1Gt9L0CXvUR)
 
 ## Usage
 
