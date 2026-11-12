@@ -213,7 +213,7 @@ func parseActionRef(uses string) (*ActionRef, error) {
 		return nil, nil
 	}
 
-	if strings.HasPrefix(uses, "./") {
+	if strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "$/") {
 		return nil, nil
 	}
 

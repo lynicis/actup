@@ -49,6 +49,8 @@ actup --dry-run
 
 - **Version manager commands** — `use`, `pin`/`unpin`, `ls`, `init`, `sync`, and `outdated` give you nvm-style control over action versions
 - **Vulnerability audit** — `actup audit` checks every action version against the OSV.dev advisory database (GitHub Actions ecosystem); the TUI and non-interactive flows also warn inline
+- **`actions.lock` integration** — reads `.github/workflows/actions.lock`, scans transitive dependencies in `actup audit`, shows `[locked]` / `[lock stale]` in `actup ls`, and re-locks automatically after workflow edits
+- **GitHub CLI extension** — install with `gh extension install lynicis/actup` and use `gh actup`
 - **Manifest as source of truth** — `.actup.yaml` declares your action versions; `sync` applies it to every workflow
 - **Workflow discovery** — recursively finds `.yml` / `.yaml` files under `.github/workflows/`
 - **Interactive TUI** — Bubble Tea–powered checklist with select-all, per-action toggle, and breaking-change detail view
@@ -82,6 +84,19 @@ actup --dry-run
 - [Acknowledgments](#acknowledgments)
 
 ## Installation
+
+### GitHub CLI Extension
+
+Install `actup` as a [GitHub CLI](https://cli.github.com/) extension and run it as `gh actup`:
+
+```sh
+gh extension install lynicis/actup
+gh actup --help
+gh actup                    # interactive TUI
+gh actup use actions/checkout@v5
+```
+
+All flags and subcommands work unchanged: `gh actup <args>` is equivalent to `actup <args>`.
 
 ### Package Managers
 
@@ -118,17 +133,19 @@ sudo rpm -i actup_latest_linux_amd64.rpm
 
 ### Docker
 
-Images are published to `ghcr.io/lynicis/actup` for `linux/amd64` and `linux/arm64`:
+Images are published to `ghcr.io/lynicis/actup` for `linux/amd64` and `linux/arm64`. The image runs as UID 65532; pass `--user "$(id -u):$(id -g)"` when it must write to a bind-mounted directory.
 
 ```sh
 # Show help
 docker run --rm ghcr.io/lynicis/actup:latest --help
 
 # Scan current directory
-docker run --rm -v "$PWD:/workdir" -w /workdir ghcr.io/lynicis/actup:latest
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/workdir" -w /workdir ghcr.io/lynicis/actup:latest
 
 # With GitHub token for higher rate limits
-docker run --rm -v "$PWD:/workdir" -w /workdir \
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/workdir" -w /workdir \
   -e GITHUB_TOKEN \
   ghcr.io/lynicis/actup:latest
 ```
@@ -189,6 +206,14 @@ actup -t $GITHUB_TOKEN
 export GITHUB_TOKEN=ghp_xxx
 actup
 ```
+
+### `actions.lock` Integration
+
+If your repository uses [`actions-lock`](https://github.com/github/actions-lockfile) (the `gh actions-lock` extension) and has a `.github/workflows/actions.lock` file, `actup` integrates with it:
+
+- **Automatic re-lock** — whenever `actup`, `actup use`, `actup sync`, or `actup audit --fix` writes to workflow files, `actup` runs `gh actions-lock` to refresh the lockfile. `--dry-run` never re-locks. If `gh` or the `gh-actions-lock` extension is missing, `actup` prints a warning and continues.
+- **Transitive dependencies in `audit`** — `actup audit` also checks the lockfile's transitive dependencies (not just direct `uses:` refs). Human-readable output marks them with `(transitive)`; `--json` sets `"transitive": true` on those findings. `audit --fix` rewrites only direct workflow files and reports any remaining transitive findings.
+- **Lock status in `ls`** — `actup ls` shows `[locked]` when an action matches the lockfile and `[lock stale]` when the workflow and lockfile disagree.
 
 ## Version Manager
 

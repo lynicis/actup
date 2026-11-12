@@ -53,7 +53,8 @@ builds:
       - -X main.date={{.CommitDate}}
 
 archives:
-  - name_template: >-
+  - id: default
+    name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
       {{- .Os }}_
@@ -63,6 +64,10 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+
+  - id: gh-extension
+    formats: [binary]
+    name_template: "gh-{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"

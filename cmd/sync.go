@@ -252,6 +252,10 @@ func doSync(ctx context.Context, opts syncOptions) error {
 		}
 	}
 
+	if !opts.dryRun && upgraded > 0 {
+		syncLockfile(opts.paths)
+	}
+
 	fmt.Printf("\n%d action(s) synced, %d already up to date", upgraded, skipped)
 	if missing > 0 {
 		fmt.Printf(", %d not used in any workflow", missing)

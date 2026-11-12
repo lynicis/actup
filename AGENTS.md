@@ -1,110 +1,58 @@
-# AGENTS.md — actup
+# AGENTS.md
 
-> Repo-specific guidance for AI agents working in this codebase.
-> Every entry should answer: *"Would an agent likely miss this without help?"*
+`actup` is a version manager for GitHub Actions: scans workflow files and sets, pins, syncs, or upgrades `uses:` refs (TUI or non-interactive), warning on known breaking changes and OSV.dev advisories.
 
-## What this is
+## Commands
 
-`actup` is a version manager for GitHub Actions (like nvm for Node, fvm for Flutter). It scans GitHub Actions workflow files to set, pin, sync, and upgrade action versions — interactively via a TUI, or non-interactively. It detects known breaking changes between major versions and warns before upgrading.
+| Task | Command |
+|------|---------|
+| Build | `make build` |
+| All tests | `make test` (`go test -v -race ./...`) |
+| One package | `go test -v ./internal/parser` |
+| Lint | `make lint` (`golangci-lint run ./...`) |
+| Security / vulns | `make sec`, `make vuln` |
+| Format / tidy | `make fmt`, `make mod-tidy` |
 
-## Architecture
+Tests write to `t.TempDir()`; no network, no fixtures on disk. `github` and `token` tests mock clients/runners — keep API calls out of unit tests.
 
-Standard Go CLI layout using Cobra:
+## Packages
 
-- `main.go` → `cmd/root.go` orchestrates packages
-- `cmd/` — root command (scan + upgrade flow) plus version-manager subcommands: `use`, `pin`/`unpin`, `ls`, `sync`, `init`, `outdated` (one file each), `audit` (OSV.dev vulnerability scan), and shared helpers in `cmd/common.go` (workflow loading, `actionSpec` parsing, ref resolution, breaking-change confirm, vuln warnings)
-- `internal/scanner` — discovers `.yml`/`.yaml` workflow files (default: `.github/workflows/`)
-- `internal/parser` — extracts `uses:` refs; skips `./local`, `docker://`, and matrix expressions; parses full commit SHAs plus an optional `# <tag>` comment, and `ActionRef.Version()` is the comparison primitive everywhere (OSV, breaking changes, outdated, ls, init, TUI)
-- `internal/github` — GitHub API client (`go-github/v89`); fetches latest tags with dual mode (major-tag or full semver), resolves tags to commit SHAs (`ResolveTagSHA`), and caches in memory
-- `internal/token` — resolves GitHub token via flag → `GITHUB_TOKEN` env → `gh auth token` CLI fallback
-- `internal/breakingchanges` — embedded YAML registry (`//go:embed registry.yaml`) for known breaking changes between major versions; uses `goccy/go-yaml` for parsing
-- `internal/config` — loads `.actup.yaml`/`.actup.yml` (manifest: `major`, `sha`, `pins` constraints, recorded `actions` state, and named `groups`); `Pins == nil` is a legacy manifest where every `actions` entry is a constraint, and `EffectivePins()` is the resolution source. Also saves it via deterministic `Render`/`Save`/`SaveDefault` (comments are not preserved; schema header is emitted; numeric-looking values are quoted)
-- `internal/tui` — Bubble Tea interactive checklist with detail view for breaking changes and vulnerabilities
-- `internal/upgrader` — atomic file edits via temp-file + rename; supports both single-tag and per-action upgrade maps
-- `internal/vulnscanner` — OSV.dev advisory client for the GitHub Actions ecosystem: `querybatch` lookups plus parallel `/vulns/{id}` detail fetches, with client-side version-range matching (OSV does not match versions server-side for this ecosystem)
+| Path | Role |
+|------|------|
+| `cmd/` | Cobra root (scan + upgrade) plus `use`, `pin`/`unpin`, `ls`, `sync`(alias `install`), `init`, `outdated`, `audit`, `install-hooks`; shared logic in `cmd/common.go` |
+| `internal/scanner` | Finds `.yml`/`.yaml` under `.github/workflows/` and composite/root action files |
+| `internal/parser` | Extracts `uses:` refs; skips `./local`, `docker://`, matrix expressions; keeps SHA + `# <tag>` comment |
+| `internal/lockfile` | Parses `.github/workflows/actions.lock` (v0.0.3), extracts transitive ActionRefs (Line 0), computes lock status, runs `gh actions-lock` via injectable execCommand |
+| `internal/github` | `go-github/v89` client: tag lookup (major or semver mode), `ResolveTagSHA`, in-memory cache |
+| `internal/token` | `--token` → `GITHUB_TOKEN` → `gh auth token` |
+| `internal/config` | `.actup.yaml` manifest (`major`, `sha`, `pins`, `actions`, `groups`); `EffectivePins()` resolves constraints |
+| `internal/tui` | Bubble Tea checklist with breaking-change / vulnerability detail views |
+| `internal/upgrader` | Atomic edits via temp file + rename; single-tag or per-action maps |
+| `internal/breakingchanges` | Embedded `registry.yaml` (goccy/go-yaml) |
+| `internal/vulnscanner` | OSV.dev `querybatch` + parallel `/vulns/{id}`; version matching is client-side |
 
-## Developer commands
+## Non-obvious rules
 
-```bash
-# Build
-make build                 # go build -o actup .
+- **Root flags are local.** Each subcommand redeclares its flags. Never use `PersistentFlags()`: `version` defines `-s/--short`, colliding with root `-s/--semver` and panicking at runtime.
+- **`ActionRef.Version()` is the comparison primitive** for OSV, breaking changes, outdated, `ls`, `init`, and the TUI. Compare through it, not raw strings.
+- **Default tag mode is major** (`v5`); `--semver` opts into full semver. Tag lookup reads 3 pages × 100 and filters non-semver/SHA refs.
+- **Config semantics:** `Pins == nil` means a legacy manifest where every `actions` entry is a constraint; always resolve via `EffectivePins()`. `Save` re-renders deterministically — user comments are lost; numeric-looking values are quoted.
+- **`runCheck` in `root.go` calls `os.Exit(1)`** when outdated entries exist; it is shared by `--check` and `outdated`, so it must not be reused where returning is expected.
+- **Exit codes in `audit`:** 1 on findings, 2 when OSV is unreachable. Query `owner/repo` lowercased; subpaths stripped.
+- Breaking-change prompts go through `confirmBreaking` (`cmd/common.go`): proceed on dry-run/force, y/N on a TTY, skip otherwise.
+- TUI model updates are easy to race — keep updates pure and rerun `make test`.
+- CGO is disabled; builds target linux/darwin/windows amd64+arm64 (no Windows arm64). API concurrency is capped at 5 via semaphore.
+- The `github-actions-updater` skill under `skills/` is a distributed artifact, not a convention for this repo.
 
-# Test (all packages, with race detector)
-make test                  # go test -v -race ./...
+## External references
 
-# Lint (requires golangci-lint installed)
-make lint                  # golangci-lint run ./...
-
-# Format and tidy
-make fmt                   # go fmt ./...
-make mod-tidy              # go mod tidy
-
-# Clean build artifacts
-make clean                 # rm -f actup && go clean
-
-# Install to GOPATH/bin
-make install               # go install .
-```
-
-## Testing
-
-- All tests use `t.TempDir()` and write temporary workflow files — safe to run in parallel, no external services needed.
-- Run a single package: `go test -v ./internal/parser`
-- The `github` package has unit tests for pure logic (`resolveLatestTag`, major-tag regex) — no API calls in tests.
-- The `breakingchanges` package has 10 unit tests covering registry parsing, version checking, and decision helpers.
-- The `token` package has 5 unit tests covering the resolution chain with mocked command runners.
-- The `tui` package has tests in `tui_test.go` covering both state transitions and rendering with an ANSI-stripping helper.
-
-## Toolchain quirks
-
-- **Go version**: `go.mod` declares `go 1.27`, CI workflows pin `go-version: '1.27'`, and the README says "Go 1.27 or later". Trust the `go.mod` and CI as the executable source of truth; the project builds fine with Go 1.27+.
-- **GoReleaser hooks**: `before.hooks` runs `go mod tidy` (not `go generate`). No `//go:generate` directives exist today.
-- **Cross-platform**: CGO is disabled (`CGO_ENABLED=0`). Builds for linux/darwin/windows amd64+arm64 (Windows arm64 excluded).
-- **Distribution**: GoReleaser also produces `.deb`/`.rpm` packages (`nfpms`) and publishes to Scoop (`lynicis/scoop-bucket`) and Homebrew (`lynicis/homebrew-tap`).
-
-## Runtime behavior
-
-- GitHub token resolution order: `--token` flag → `GITHUB_TOKEN` env var → `gh auth token` CLI. If all fail, the CLI warns and proceeds with unauthenticated rate limits (60 req/hr).
-- Default scan target is `.github/workflows` in the current working directory when no `--path` is given.
-- **Root flags are local, not persistent** — each subcommand re-declares the flags it needs. Do not promote root flags to `PersistentFlags()`: the `version` subcommand defines `-s/--short`, which would collide with root's `-s/--semver` and panic at runtime.
-- **Version-manager command semantics** (nvm/fvm style):
-  - `audit` — checks action refs against OSV.dev (GitHub Actions ecosystem); `--json` for machine output; exits 1 on findings, 2 when OSV is unreachable. Matching is client-side because OSV ignores the `version` field for this ecosystem; package names are lowercased (OSV is case-sensitive), subpath actions are queried by `owner/repo`, and withdrawn advisories are skipped. The TUI shows a `⚠ vulnerable` badge with detail view; `--no-tui`/`--check` print warnings before upgrading.
-  - `use <action>[@<ref>]` — rewrites all workflow refs to the target version and saves the pin to `.actup.yaml` by default (`--no-save` opts out, `--dry-run` writes nothing). Ref forms: `@vN` verbatim, `@N` → latest tag in major N via API, `@latest`/none → latest per tag mode, anything else verbatim.
-  - `pin`/`unpin` — edit `.actup.yaml` only; `pin` without `@ref` pins the most-used version found in workflows.
-  - `sync` (alias `install`) — applies manifest pins to workflows: exact refs verbatim, numeric majors resolved via API, `skip` ignored. Honors `--dry-run`/`--force`.
-  - `init` — bootstraps `.actup.yaml` from current workflow versions; refuses to overwrite without `--force` (which merges, preserving existing pins).
-  - `ls` — offline by default; `ls --outdated` hits the API and honors pins like `--check`.
-  - `outdated` — subcommand form of the `--check` flag; reuses `runCheck` from root.go (which calls `os.Exit(1)` when outdated entries exist).
-- Breaking-change prompts in `use`/`sync` mirror `--no-tui` behavior via `confirmBreaking` in `cmd/common.go` (proceed on dry-run/force, y/N prompt on TTY, skip otherwise).
-- `--dry-run` prints a diff-style preview without writing files.
-- `--no-tui` upgrades everything non-interactively (respects `--dry-run`).
-- `--semver` / `-s` opts into full semver tag resolution (e.g., `v5.3.1`). **Default is major-tag mode** (e.g., `v5`), which prefers `^v\d+$` tags and falls back to highest semver if none exist.
-- `--force` / `-f` upgrades past known breaking changes without prompting in non-interactive mode.
-- Breaking-change detection: both TUI and no-TUI modes check the embedded registry before upgrading. The TUI shows a `⚠ breaking changes` badge and a detail view (`i` key). No-TUI mode uses TTY detection (`golang.org/x/term`) for interactive y/N prompts.
-- API concurrency is capped at 5 parallel requests via a semaphore.
-- Tag lookup fetches up to 300 tags (3 pages × 100) and filters for semver, skipping non-semver and SHA refs.
-
-## CI / Release
-
-- `.github/workflows/ci.yml` — builds, tests (`-race -coverprofile`), lints (`golangci-lint --timeout=5m`), and cross-compiles on macOS/Windows.
-- `.github/workflows/release.yml` — triggered on `v*` tags, runs tests then GoReleaser. Uses `HOMEBREW_TAP_GITHUB_TOKEN` for Scoop/Homebrew publishing. Sets up QEMU + Buildx and logs into `ghcr.io` for Docker image publishing.
-- `.github/workflows/update-homebrew-tap.yaml` — triggered on `v*` tags, updates the Homebrew formula in `lynicis/homebrew-tap`.
-- GoReleaser config in `.goreleaser.yaml` injects version metadata via ldflags (`main.version`, `main.commit`, `main.date`).
-- **Reproducible builds**: `.goreleaser.yaml` uses `metadata.mod_timestamp` and `builds.mod_timestamp` set to `{{ .CommitTimestamp }}`, and `main.date` is set from `{{ .CommitDate }}`.
-
-## Docker
-
-- `Dockerfile` — single-stage Alpine image with pre-built binary from GoReleaser. Produces a ~19 MB image with ca-certificates.
-- `.dockerignore` — excludes `.git/`, `*.md`, `dist/`, `testdata/`, coverage artifacts.
-- GoReleaser uses `dockers_v2` to build a multi-arch manifest (linux/amd64 + linux/arm64) tagged `vX.Y.Z` and `latest` on `ghcr.io/lynicis/actup`.
-- Release workflow logs into `ghcr.io` using `GITHUB_TOKEN` (no extra secret needed).
-- Local Docker build: `docker build -t actup .`
-
-## Dependency notes
-
-- `go-github/v89` is the API client. If upgrading, ensure the API signatures haven't changed.
-- `golang.org/x/mod` is used for semver parsing and sorting.
-- `golang.org/x/oauth2` is the OAuth2 transport for GitHub API authentication.
-- `golang.org/x/term` is used for TTY detection in non-interactive mode.
-- `goccy/go-yaml` parses the breaking-change registry (not `gopkg.in/yaml.v3`).
-- Bubble Tea, Bubbles, and Lipgloss are the TUI stack. Be careful with TUI model updates to avoid race conditions.
+| Need | File |
+|------|------|
+| CLI usage, config, installation | `README.md` |
+| Release history | `CHANGELOG.md` |
+| Security policy | `SECURITY.md` |
+| Manifest schema | `schema.json` |
+| Design notes | `docs/plans/` |
+| Release packaging (GoReleaser, nfpms, Docker) | `.goreleaser.yaml`, `Dockerfile` |
+| CI | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
+| Pre-commit (runs `actup outdated`) | `.pre-commit-config.yaml` |

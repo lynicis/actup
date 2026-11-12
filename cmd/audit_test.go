@@ -575,3 +575,151 @@ func TestAuditFixAlreadyPast(t *testing.T) {
 		t.Errorf("already-past key was rewritten: %s", got)
 	}
 }
+
+// auditTransitiveFixture writes a workflow and actions.lock declaring one
+// transitive dependency, chdirs into the repo, and returns the dir and lock path.
+func auditTransitiveFixture(t *testing.T, lockContent string) (dir, lockPath string) {
+	t.Helper()
+	dir = t.TempDir()
+	wfDir := filepath.Join(dir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wf := "name: CI\non: [push]\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n"
+	if err := os.WriteFile(filepath.Join(wfDir, "ci.yml"), []byte(wf), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lockPath = filepath.Join(wfDir, "actions.lock")
+	if err := os.WriteFile(lockPath, []byte(lockContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	return dir, lockPath
+}
+
+// stubTransitiveScan reports a vulnerability only for actions/attest, using
+// the ref's own file and line so transitive refs keep Line == 0.
+func stubTransitiveScan(t *testing.T) {
+	t.Helper()
+	old := auditScan
+	auditScan = func(_ context.Context, refs []parser.ActionRef) ([]vulnscanner.Finding, error) {
+		var out []vulnscanner.Finding
+		for _, r := range refs {
+			if r.Owner == "actions" && r.Repo == "attest" {
+				out = append(out, vulnscanner.Finding{
+					Owner: r.Owner,
+					Repo:  r.Repo,
+					Ref:   r.Version(),
+					File:  r.File,
+					Line:  r.Line,
+					Vulns: []vulnscanner.Vulnerability{{ID: "GHSA-trans-1", Severity: "HIGH", Fixed: "1.0.1"}},
+				})
+			}
+		}
+		return out, nil
+	}
+	t.Cleanup(func() { auditScan = old })
+}
+
+// captureAuditStdout runs fn with os.Stdout redirected to a pipe.
+func captureAuditStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	fn()
+	_ = w.Close()
+	os.Stdout = oldStdout
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+func TestAuditJSON_IncludesTransitiveFromActionsLock(t *testing.T) {
+	resetAuditFixState()
+	defer resetAuditFixState()
+
+	lockContent := `version: 'v0.0.3'
+workflows:
+  '.github/workflows/ci.yml':
+    - 'actions/checkout@v4'
+dependencies:
+  'actions/checkout@v4':
+    ref: 'v4.2.0'
+    commit: 'sha1-1111111111111111111111111111111111111111'
+  'actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26':
+    ref: 'v1.0.0'
+    commit: 'sha1-59d89421af93a897026c735860bf21b6eb4f7b26'
+`
+	dir, _ := auditTransitiveFixture(t, lockContent)
+	stubTransitiveScan(t)
+
+	var err error
+	out := captureAuditStdout(t, func() {
+		err = runAuditCommand(t, "audit", "--json", "--path", dir)
+	})
+	if !errors.Is(err, errAuditFindings) {
+		t.Fatalf("expected errAuditFindings, got %v", err)
+	}
+	if !strings.Contains(out, `"transitive": true`) {
+		t.Errorf("expected transitive: true in JSON output, got:\n%s", out)
+	}
+}
+
+func TestAuditFix_TransitiveOnlyReportsResidualAndDoesNotRewriteLockfile(t *testing.T) {
+	resetAuditFixState()
+	defer resetAuditFixState()
+
+	lockContent := `version: 'v0.0.3'
+workflows:
+  '.github/workflows/ci.yml':
+    - 'actions/checkout@v4'
+dependencies:
+  'actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26':
+    ref: 'v1.0.0'
+    commit: 'sha1-59d89421af93a897026c735860bf21b6eb4f7b26'
+`
+	dir, lockPath := auditTransitiveFixture(t, lockContent)
+	stubTransitiveScan(t)
+
+	oldRelock := relockFunc
+	relockCalls := 0
+	relockFunc = func(string) error {
+		relockCalls++
+		return nil
+	}
+	defer func() { relockFunc = oldRelock }()
+
+	var err error
+	out := captureAuditStdout(t, func() {
+		err = runAuditCommand(t, "audit", "--fix", "--path", dir)
+	})
+	if !errors.Is(err, errAuditFindings) {
+		t.Fatalf("expected errAuditFindings when transitive finding remains, got %v", err)
+	}
+	if !strings.Contains(out, "transitive dependency") {
+		t.Errorf("expected transitive dependency remediation message, got:\n%s", out)
+	}
+	if relockCalls != 0 {
+		t.Errorf("relockFunc called %d times for a transitive-only fix; want 0", relockCalls)
+	}
+	got, err := os.ReadFile(lockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != lockContent {
+		t.Errorf("actions.lock was rewritten:\n%s", got)
+	}
+}

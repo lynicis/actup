@@ -534,3 +534,19 @@ func TestExtractActionsNoWith(t *testing.T) {
 	assertInputs(t, actions, 0, nil)
 	assertInputs(t, actions, 1, nil)
 }
+
+func TestExtractActionsSkipsDollarLocalRefs(t *testing.T) {
+	actions := inputWorkflow(t, `jobs:
+  build:
+    steps:
+      - uses: $/.github/actions/my-action@main
+      - uses: $/actions/local-helper
+      - uses: actions/checkout@v4
+`)
+	if len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %d: %+v", len(actions), actions)
+	}
+	if actions[0].Owner != "actions" || actions[0].Repo != "checkout" {
+		t.Errorf("unexpected action: %+v", actions[0])
+	}
+}

@@ -266,3 +266,15 @@ func TestGroupPlusPositionalUnion(t *testing.T) {
 		t.Fatalf("got %d actions, want 2", len(got))
 	}
 }
+
+func TestIsGHExtensionInvocation(t *testing.T) {
+	if !isGHExtensionInvocation("/Users/me/.local/share/gh/extensions/gh-actup/gh-actup", "") {
+		t.Error("expected gh-actup binary name to be detected as gh extension")
+	}
+	if !isGHExtensionInvocation("/usr/local/bin/actup", "/opt/homebrew/bin/gh") {
+		t.Error("expected GH_PATH env var to be detected as gh extension")
+	}
+	if isGHExtensionInvocation("/usr/local/bin/actup", "") {
+		t.Error("plain actup binary without GH_PATH must not be detected as gh extension")
+	}
+}

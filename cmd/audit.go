@@ -15,6 +15,7 @@ import (
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
+	"github.com/lynicis/actup/internal/lockfile"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/upgrader"
 	"github.com/lynicis/actup/internal/vulnscanner"
@@ -90,11 +91,12 @@ type auditFix struct {
 
 // auditJSONFinding is the JSON representation of one vulnerable usage site.
 type auditJSONFinding struct {
-	Action string          `json:"action"`
-	Ref    string          `json:"ref"`
-	File   string          `json:"file"`
-	Line   int             `json:"line"`
-	Vulns  []auditJSONVuln `json:"vulns"`
+	Action     string          `json:"action"`
+	Ref        string          `json:"ref"`
+	File       string          `json:"file"`
+	Line       int             `json:"line"`
+	Transitive bool            `json:"transitive,omitempty"`
+	Vulns      []auditJSONVuln `json:"vulns"`
 }
 
 type auditJSONVuln struct {
@@ -123,6 +125,12 @@ func runAudit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	actions = filterSkippedActions(actions, cfg)
+	directActions := actions
+	if lf, lerr := lockfile.LoadForPaths(auditOpts.paths); lerr != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Failed to read actions.lock: %v\n", lerr)
+	} else if lf != nil {
+		actions = append(actions, filterSkippedActions(lf.TransitiveRefs(directActions), cfg)...)
+	}
 	if len(actions) == 0 {
 		if auditOpts.json {
 			fmt.Println(`{"findings":[]}`)
@@ -173,7 +181,13 @@ func runAudit(cmd *cobra.Command, args []string) error {
 	}
 
 	if auditOpts.json {
-		return outputAuditJSON(findings)
+		if err := outputAuditJSON(findings); err != nil {
+			if errors.Is(err, errAuditFindings) {
+				return auditFindingsError(cmd)
+			}
+			return err
+		}
+		return nil
 	}
 
 	if len(findings) == 0 {
@@ -182,12 +196,16 @@ func runAudit(cmd *cobra.Command, args []string) error {
 	}
 
 	if auditOpts.fix {
-		return runAuditFix(ctx, cmd, cfg, actions, findings)
+		return runAuditFix(ctx, cmd, cfg, directActions, findings)
 	}
 
 	for _, f := range findings {
 		action := f.Owner + "/" + f.Repo
-		fmt.Printf("%s:%d: %s@%s\n", f.File, f.Line, action, f.Ref)
+		if f.Line == 0 {
+			fmt.Printf("%s (transitive): %s@%s\n", f.File, action, f.Ref)
+		} else {
+			fmt.Printf("%s:%d: %s@%s\n", f.File, f.Line, action, f.Ref)
+		}
 		for _, v := range f.Vulns {
 			severity := v.Severity
 			if severity == "" {
@@ -212,7 +230,24 @@ func runAudit(cmd *cobra.Command, args []string) error {
 
 // runAuditFix plans and applies upgrades for every actionable finding.
 func runAuditFix(ctx context.Context, cmd *cobra.Command, cfg *config.Config, actions []parser.ActionRef, findings []vulnscanner.Finding) error {
-	fixes, unfixable, alreadyPast := planAuditFixes(findings, actions)
+	// Transitive lockfile refs (Line == 0) are reported but never handed to
+	// the upgrader: their source is actions.lock, not a workflow file.
+	var directFindings, transitiveFindings []vulnscanner.Finding
+	for _, f := range findings {
+		if f.Line == 0 {
+			transitiveFindings = append(transitiveFindings, f)
+			continue
+		}
+		directFindings = append(directFindings, f)
+	}
+	directActions := make([]parser.ActionRef, 0, len(actions))
+	for _, a := range actions {
+		if a.Line > 0 {
+			directActions = append(directActions, a)
+		}
+	}
+
+	fixes, unfixable, alreadyPast := planAuditFixes(directFindings, directActions)
 	for _, f := range unfixable {
 		fmt.Printf("✗ %s/%s: no fixed version known (%s:%d)\n", f.Owner, f.Repo, f.File, f.Line)
 	}
@@ -228,7 +263,7 @@ func runAuditFix(ctx context.Context, cmd *cobra.Command, cfg *config.Config, ac
 	}
 
 	var client *github.Client
-	if !auditOpts.semver || shaMode || anyRefPinned(actions) {
+	if !auditOpts.semver || shaMode || anyRefPinned(directActions) {
 		client = github.NewClient(resolveToken(auditOpts.token))
 	}
 	registry, err := breakingchanges.LoadRegistry()
@@ -310,6 +345,14 @@ func runAuditFix(ctx context.Context, cmd *cobra.Command, cfg *config.Config, ac
 		if err := savePins(pins); err != nil {
 			fmt.Fprintf(os.Stderr, "⚠ Failed to save pins: %v\n", err)
 		}
+	}
+	if !auditOpts.dryRun && len(applied) > 0 {
+		syncLockfile(auditOpts.paths)
+	}
+
+	for _, tf := range transitiveFindings {
+		fmt.Printf("✗ %s/%s@%s: transitive dependency in %s (upgrade parent action or run 'gh actions-lock --relock')\n", tf.Owner, tf.Repo, tf.Ref, tf.File)
+		residual++
 	}
 
 	if auditOpts.dryRun {
@@ -557,8 +600,9 @@ func auditUpgrades(f auditFix, newSHA string, forceSHA bool) []upgrader.Upgrade 
 	return upgrades
 }
 
-// outputAuditJSON writes findings as JSON to stdout and exits 1 when any
-// were found. No extra hints are printed so the output stays machine-readable.
+// outputAuditJSON writes findings as JSON to stdout and returns
+// errAuditFindings when any were found. No extra hints are printed so the
+// output stays machine-readable.
 func outputAuditJSON(findings []vulnscanner.Finding) error {
 	out := struct {
 		Findings []auditJSONFinding `json:"findings"`
@@ -568,11 +612,12 @@ func outputAuditJSON(findings []vulnscanner.Finding) error {
 
 	for _, f := range findings {
 		jf := auditJSONFinding{
-			Action: f.Owner + "/" + f.Repo,
-			Ref:    f.Ref,
-			File:   f.File,
-			Line:   f.Line,
-			Vulns:  make([]auditJSONVuln, 0, len(f.Vulns)),
+			Action:     f.Owner + "/" + f.Repo,
+			Ref:        f.Ref,
+			File:       f.File,
+			Line:       f.Line,
+			Transitive: f.Line == 0,
+			Vulns:      make([]auditJSONVuln, 0, len(f.Vulns)),
 		}
 		for _, v := range f.Vulns {
 			jf.Vulns = append(jf.Vulns, auditJSONVuln{
@@ -593,7 +638,7 @@ func outputAuditJSON(findings []vulnscanner.Finding) error {
 	}
 
 	if len(findings) > 0 {
-		os.Exit(1)
+		return errAuditFindings
 	}
 	return nil
 }

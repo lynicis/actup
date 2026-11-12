@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -541,5 +542,99 @@ func TestRecordUpgrades_NoManifestNoop(t *testing.T) {
 	}
 	if _, err := os.Stat(".actup.yaml"); err == nil {
 		t.Error("recordUpgrades must not create a manifest")
+	}
+}
+
+// captureStdout runs fn with os.Stdout redirected to a pipe and returns what
+// was printed.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	defer func() { os.Stdout = old }()
+
+	fn()
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("close pipe writer: %v", err)
+	}
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read pipe: %v", err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatalf("close pipe reader: %v", err)
+	}
+	return string(out)
+}
+
+func TestUseAndSync_AutoRelockWhenActionsLockExists(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeWorkflow(t, dir, "ci.yml", testWorkflow)
+	lockPath := filepath.Join(dir, ".github", "workflows", "actions.lock")
+	if err := os.WriteFile(lockPath, []byte("version: 'v0.0.3'\nworkflows: {}\ndependencies: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	calls := 0
+	origRelock := relockFunc
+	relockFunc = func(path string) error {
+		calls++
+		return nil
+	}
+	defer func() { relockFunc = origRelock }()
+
+	// Dry-run must NOT trigger relock
+	if err := doUse(context.Background(), []actionSpec{{Key: "actions/checkout", Ref: "v5"}}, useOptions{dryRun: true, force: true}); err != nil {
+		t.Fatalf("doUse dry-run: %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("dry-run must not call relock, got %d calls", calls)
+	}
+
+	// Real write MUST trigger relock once
+	if err := doUse(context.Background(), []actionSpec{{Key: "actions/checkout", Ref: "v5"}}, useOptions{force: true}); err != nil {
+		t.Fatalf("doUse: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 relock call after doUse, got %d", calls)
+	}
+}
+
+func TestLs_ShowsLockStatusWhenActionsLockPresent(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeWorkflow(t, dir, "ci.yml", testWorkflow)
+	lockContent := `version: 'v0.0.3'
+workflows:
+  '.github/workflows/ci.yml':
+    - 'actions/checkout@v3'
+dependencies:
+  'actions/checkout@v3':
+    ref: 'v3.6.0'
+    commit: 'sha1-1111111111111111111111111111111111111111'
+`
+	lockPath := filepath.Join(dir, ".github", "workflows", "actions.lock")
+	if err := os.WriteFile(lockPath, []byte(lockContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureStdout(t, func() {
+		lsOpts.paths = nil
+		lsOpts.outdated = false
+		if err := runLs(lsCmd, nil); err != nil {
+			t.Fatalf("runLs: %v", err)
+		}
+	})
+	if !strings.Contains(out, "actions/checkout") || !strings.Contains(out, "[locked]") {
+		t.Errorf("expected actions/checkout to show [locked], got:\n%s", out)
+	}
+	if !strings.Contains(out, "actions/setup-go") || !strings.Contains(out, "[lock stale]") {
+		t.Errorf("expected actions/setup-go to show [lock stale], got:\n%s", out)
 	}
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
+	"github.com/lynicis/actup/internal/lockfile"
 	"github.com/lynicis/actup/internal/parser"
 )
 
@@ -60,14 +61,15 @@ func runLs(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load config: %v\n", err)
 	}
 	pins := cfg.EffectivePins()
+	lf, _ := lockfile.LoadForPaths(lsOpts.paths)
 
 	if len(args) == 1 {
-		return runLsDetail(grouped, pins, args[0])
+		return runLsDetail(grouped, pins, lf, args[0])
 	}
-	return runLsTable(ctx, grouped, pins)
+	return runLsTable(ctx, grouped, pins, lf)
 }
 
-func runLsDetail(grouped map[string][]parser.ActionRef, pins map[string]string, key string) error {
+func runLsDetail(grouped map[string][]parser.ActionRef, pins map[string]string, lf *lockfile.Lockfile, key string) error {
 	refs, ok := grouped[key]
 	if !ok {
 		return fmt.Errorf("%s is not used in any workflow", key)
@@ -77,7 +79,18 @@ func runLsDetail(grouped map[string][]parser.ActionRef, pins map[string]string, 
 	if pin == "" {
 		pin = "—"
 	}
-	fmt.Printf("%s (pin: %s)\n\n", key, pin)
+	if lf != nil {
+		label := ""
+		switch lf.StatusForAction(key, refs) {
+		case lockfile.StatusLocked:
+			label = ", lock: locked"
+		case lockfile.StatusStale:
+			label = ", lock: stale"
+		}
+		fmt.Printf("%s (pin: %s%s)\n\n", key, pin, label)
+	} else {
+		fmt.Printf("%s (pin: %s)\n\n", key, pin)
+	}
 
 	sorted := make([]parser.ActionRef, len(refs))
 	copy(sorted, refs)
@@ -94,7 +107,7 @@ func runLsDetail(grouped map[string][]parser.ActionRef, pins map[string]string, 
 	return nil
 }
 
-func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, pins map[string]string) error {
+func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, pins map[string]string, lf *lockfile.Lockfile) error {
 	keys := slices.Sorted(maps.Keys(grouped))
 
 	var latest map[string]string
@@ -124,6 +137,15 @@ func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, pins
 			line += fmt.Sprintf("  pin: %s", pin)
 		default:
 			line += "  —"
+		}
+
+		if lf != nil {
+			switch lf.StatusForAction(key, grouped[key]) {
+			case lockfile.StatusLocked:
+				line += "  [locked]"
+			case lockfile.StatusStale:
+				line += "  [lock stale]"
+			}
 		}
 
 		if latest != nil {

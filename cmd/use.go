@@ -175,6 +175,10 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 		}
 	}
 
+	if !opts.dryRun && updatedActions > 0 {
+		syncLockfile(opts.paths)
+	}
+
 	if opts.dryRun {
 		fmt.Println("\nDry run: no files were modified. Run without --dry-run to apply.")
 	} else if updatedActions > 0 || !opts.noSave {

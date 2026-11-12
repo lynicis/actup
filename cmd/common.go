@@ -16,6 +16,7 @@ import (
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
+	"github.com/lynicis/actup/internal/lockfile"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/scanner"
 	"github.com/lynicis/actup/internal/token"
@@ -431,4 +432,24 @@ func pluralY(n int) string {
 		return "y"
 	}
 	return "ies"
+}
+
+// relockFunc is a test seam for refreshing actions.lock via `gh actions-lock`.
+var relockFunc = lockfile.Sync
+
+// syncLockfile refreshes actions.lock after workflow writes, when one exists.
+func syncLockfile(paths []string) {
+	lf, err := lockfile.LoadForPaths(paths)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Failed to read actions.lock: %v\n", err)
+		return
+	}
+	if lf == nil {
+		return
+	}
+	if err := relockFunc(lf.Path); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Failed to update actions.lock (run 'gh actions-lock' manually): %v\n", err)
+		return
+	}
+	fmt.Println("✓ Updated .github/workflows/actions.lock")
 }

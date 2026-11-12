@@ -13,6 +13,7 @@ import (
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
+	"github.com/lynicis/actup/internal/lockfile"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/upgrader"
 	"github.com/lynicis/actup/internal/vulnscanner"
@@ -86,6 +87,7 @@ type applyResult struct {
 type model struct {
 	state      state
 	actions    []parser.ActionRef
+	paths      []string
 	token      string
 	dryRun     bool
 	semverMode bool
@@ -103,13 +105,14 @@ type model struct {
 }
 
 // Run launches the interactive TUI.
-func Run(actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int, shaMode bool, cfg *config.Config) error {
+func Run(actions []parser.ActionRef, paths []string, token string, dryRun bool, semverMode bool, majorVer int, shaMode bool, cfg *config.Config) error {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = normalStyle
 
 	m := model{
 		actions:    actions,
+		paths:      paths,
 		token:      token,
 		dryRun:     dryRun,
 		semverMode: semverMode,
@@ -503,6 +506,13 @@ func (m model) applyUpgrades() tea.Msg {
 		// A failed save must not lose the run summary; the workflows were rewritten.
 		if saveErr := config.SaveDefault(m.cfg); saveErr != nil {
 			err = saveErr
+		}
+	}
+
+	// Keep actions.lock in step with rewritten workflows; stay silent in the TUI.
+	if !m.dryRun && err == nil && len(upgrades) > 0 {
+		if lf, lerr := lockfile.LoadForPaths(m.paths); lerr == nil && lf != nil {
+			_ = lockfile.Sync(lf.Path)
 		}
 	}
 

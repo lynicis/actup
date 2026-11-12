@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -62,6 +64,9 @@ func Execute() {
 }
 
 func init() {
+	if len(os.Args) > 0 && isGHExtensionInvocation(os.Args[0], os.Getenv("GH_PATH")) {
+		rootCmd.Use = "gh actup [pattern...]"
+	}
 	rootCmd.Flags().StringArrayVarP(&paths, "path", "p", []string{}, "Paths to workflow files or directories")
 	rootCmd.Flags().StringVarP(&githubToken, "token", "t", "", "GitHub PAT (fallback: GITHUB_TOKEN env var, then gh auth token)")
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview changes without writing files")
@@ -71,6 +76,11 @@ func init() {
 	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Upgrade actions with breaking changes without prompting in non-interactive mode")
 	rootCmd.Flags().BoolVar(&shaFlag, "sha", false, "Write refs as full commit SHAs with the tag in a trailing comment")
 	rootCmd.Flags().StringArrayVar(&filterGroups, "group", nil, "Only actions in a .actup.yaml group (repeatable)")
+}
+
+func isGHExtensionInvocation(arg0, ghPath string) bool {
+	base := strings.ToLower(filepath.Base(arg0))
+	return strings.HasPrefix(base, "gh-") || ghPath != ""
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -132,7 +142,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force, shaMode, cfg)
 	}
 
-	return tui.Run(actions, githubToken, dryRun, semverMode, majorVer, shaMode, cfg)
+	return tui.Run(actions, paths, githubToken, dryRun, semverMode, majorVer, shaMode, cfg)
 }
 
 func filterSkippedActions(actions []parser.ActionRef, cfg *config.Config) []parser.ActionRef {
@@ -259,6 +269,10 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 
 	if err := recordUpgrades(cfg, recorded); err != nil {
 		return fmt.Errorf("record upgrades: %w", err)
+	}
+
+	if !dryRun && upgraded > 0 {
+		syncLockfile(paths)
 	}
 
 	fmt.Printf("\n%d actions upgraded, %d skipped (up to date), %d skipped (API error)", upgraded, skipped, apiErr)
