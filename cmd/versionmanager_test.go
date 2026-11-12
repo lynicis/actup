@@ -631,10 +631,19 @@ dependencies:
 			t.Fatalf("runLs: %v", err)
 		}
 	})
-	if !strings.Contains(out, "actions/checkout") || !strings.Contains(out, "[locked]") {
-		t.Errorf("expected actions/checkout to show [locked], got:\n%s", out)
+	var checkoutLine, setupLine string
+	for _, line := range strings.Split(out, "\n") {
+		switch {
+		case strings.Contains(line, "actions/checkout"):
+			checkoutLine = line
+		case strings.Contains(line, "actions/setup-go"):
+			setupLine = line
+		}
 	}
-	if !strings.Contains(out, "actions/setup-go") || !strings.Contains(out, "[lock stale]") {
-		t.Errorf("expected actions/setup-go to show [lock stale], got:\n%s", out)
+	if !strings.Contains(checkoutLine, "[locked]") || strings.Contains(checkoutLine, "[lock stale]") {
+		t.Errorf("expected actions/checkout to show [locked], got line %q (full output:\n%s)", checkoutLine, out)
+	}
+	if !strings.Contains(setupLine, "[lock stale]") || strings.Contains(setupLine, "[locked]") {
+		t.Errorf("expected actions/setup-go to show [lock stale], got line %q (full output:\n%s)", setupLine, out)
 	}
 }

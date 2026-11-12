@@ -1,7 +1,6 @@
 package lockfile
 
 import (
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -135,6 +134,52 @@ func TestStatusForAction_SubpathAndCaseInsensitive(t *testing.T) {
 	}
 }
 
+// TestSyncHelperProcess is the subprocess used by TestSync_UsesExecSeam so the
+// stub does not depend on Unix utilities (true/false) that Windows lacks.
+func TestSyncHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_SYNC_HELPER") != "1" {
+		return
+	}
+	if os.Getenv("GO_WANT_SYNC_FAIL") == "1" {
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func TestStatusForAction_NarrowedLockRef(t *testing.T) {
+	lf := &Lockfile{
+		Path: "actions.lock",
+		Dependencies: map[string]Dependency{
+			"actions/checkout@v7.2.1": {Ref: "v7.2.1"},
+		},
+	}
+	if got := lf.StatusForAction("actions/checkout", []parser.ActionRef{
+		{Owner: "actions", Repo: "checkout", Current: "v7"},
+	}); got != StatusLocked {
+		t.Errorf("narrowed v7.2.1 pin should lock a v7 ref, got %v", got)
+	}
+}
+
+func TestLoadForPaths_GitHubDir(t *testing.T) {
+	dir := t.TempDir()
+	wfDir := filepath.Join(dir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lockPath := filepath.Join(wfDir, "actions.lock")
+	if err := os.WriteFile(lockPath, []byte(sampleLockYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	lf, err := LoadForPaths([]string{filepath.Join(dir, ".github")})
+	if err != nil || lf == nil {
+		t.Fatalf("LoadForPaths(.github): lf=%v, err=%v", lf, err)
+	}
+	if lf.Path != lockPath {
+		t.Errorf("loaded %q, want %q", lf.Path, lockPath)
+	}
+}
+
 func TestSync_UsesExecSeam(t *testing.T) {
 	orig := execCommand
 	defer func() { execCommand = orig }()
@@ -144,7 +189,9 @@ func TestSync_UsesExecSeam(t *testing.T) {
 	execCommand = func(name string, arg ...string) *exec.Cmd {
 		gotName = name
 		gotArgs = arg
-		return exec.Command("true")
+		cmd := exec.Command(os.Args[0], "-test.run=TestSyncHelperProcess")
+		cmd.Env = append(os.Environ(), "GO_WANT_SYNC_HELPER=1")
+		return cmd
 	}
 
 	if err := Sync(".github/workflows/actions.lock"); err != nil {
@@ -155,11 +202,11 @@ func TestSync_UsesExecSeam(t *testing.T) {
 	}
 
 	execCommand = func(name string, arg ...string) *exec.Cmd {
-		return exec.Command("false")
+		cmd := exec.Command(os.Args[0], "-test.run=TestSyncHelperProcess")
+		cmd.Env = append(os.Environ(), "GO_WANT_SYNC_HELPER=1", "GO_WANT_SYNC_FAIL=1")
+		return cmd
 	}
 	if err := Sync(".github/workflows/actions.lock"); err == nil {
 		t.Fatal("expected error when gh actions-lock fails")
-	} else if !errors.Is(err, err) {
-		t.Fatal("unreachable")
 	}
 }

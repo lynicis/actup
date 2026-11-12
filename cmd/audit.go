@@ -25,6 +25,10 @@ import (
 // maps it to exit status 1.
 var errAuditFindings = errors.New("audit findings remain")
 
+// errAuditUnavailable signals that the OSV scan could not run. Execute maps
+// it to exit status 2.
+var errAuditUnavailable = errors.New("audit scan unavailable")
+
 var auditOpts struct {
 	paths  []string
 	json   bool
@@ -174,7 +178,7 @@ func runAudit(cmd *cobra.Command, args []string) error {
 	findings, err := auditScan(ctx, checkable)
 	if err != nil {
 		if auditOpts.json {
-			return fmt.Errorf("vulnerability scan failed: %w", err)
+			return fmt.Errorf("%w: %v", errAuditUnavailable, err)
 		}
 		fmt.Fprintf(os.Stderr, "⚠ Vulnerability scan failed (network unavailable?): %v\n", err)
 		os.Exit(2)

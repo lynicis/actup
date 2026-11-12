@@ -59,13 +59,19 @@ upgrading, and checks workflows against OSV.dev advisories.`,
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
+		if errors.Is(err, errAuditUnavailable) {
+			os.Exit(2)
+		}
 		os.Exit(1)
 	}
 }
 
 func init() {
 	if len(os.Args) > 0 && isGHExtensionInvocation(os.Args[0], os.Getenv("GH_PATH")) {
-		rootCmd.Use = "gh actup [pattern...]"
+		if rootCmd.Annotations == nil {
+			rootCmd.Annotations = map[string]string{}
+		}
+		rootCmd.Annotations[cobra.CommandDisplayNameAnnotation] = "gh actup"
 	}
 	rootCmd.Flags().StringArrayVarP(&paths, "path", "p", []string{}, "Paths to workflow files or directories")
 	rootCmd.Flags().StringVarP(&githubToken, "token", "t", "", "GitHub PAT (fallback: GITHUB_TOKEN env var, then gh auth token)")

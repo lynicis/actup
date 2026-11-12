@@ -71,6 +71,7 @@ func LoadForPaths(paths []string) (*Lockfile, error) {
 		for _, candidate := range []string{
 			filepath.Join(p, "actions.lock"),
 			filepath.Join(p, ".github", "workflows", "actions.lock"),
+			filepath.Join(p, "workflows", "actions.lock"),
 			filepath.Join(filepath.Dir(p), "actions.lock"),
 		} {
 			if _, err := os.Stat(candidate); err == nil {
@@ -95,6 +96,9 @@ func (l *Lockfile) TransitiveRefs(direct []parser.ActionRef) []parser.ActionRef 
 		directSet[canonicalPinKey(a.Owner, a.Repo, a.Current)] = struct{}{}
 		directSet[canonicalPinKey(a.Owner, a.Repo, a.Version())] = struct{}{}
 	}
+	// l.Workflows holds each workflow's canonical pin keys, already narrowed
+	// to full tags (v4 -> v4.2.1). Union them so a narrowed direct pin is not
+	// mistaken for a transitive dependency.
 	for _, refs := range l.Workflows {
 		for _, entry := range refs {
 			if key, ok := workflowKey(entry); ok {
@@ -165,23 +169,42 @@ func (l *Lockfile) StatusForAction(key string, refs []parser.ActionRef) Status {
 		return StatusNone
 	}
 
-	locked := make(map[string]struct{}, len(l.Dependencies))
+	locked := make(map[string][]string, len(l.Dependencies))
 	for k := range l.Dependencies {
 		repoPart, ref, ok := strings.Cut(k, "@")
 		if !ok {
 			continue
 		}
-		locked[strings.ToLower(repoPart)+"@"+ref] = struct{}{}
+		repoKey := strings.ToLower(repoPart)
+		locked[repoKey] = append(locked[repoKey], ref)
 	}
 
 	for _, r := range refs {
-		_, byCurrent := locked[canonicalPinKey(r.Owner, r.Repo, r.Current)]
-		_, byVersion := locked[canonicalPinKey(r.Owner, r.Repo, r.Version())]
-		if !byCurrent && !byVersion {
+		specs := locked[strings.ToLower(r.Owner+"/"+r.Repo)]
+		ok := slices.ContainsFunc(specs, func(spec string) bool {
+			return lockSpecMatches(spec, r.Current) || lockSpecMatches(spec, r.Version())
+		})
+		if !ok {
 			return StatusStale
 		}
 	}
 	return StatusLocked
+}
+
+// partialSemver matches a major or major.minor ref such as v4, 4, or v4.2.
+var partialSemver = regexp.MustCompile(`^v?\d+(\.\d+)?$`)
+
+// lockSpecMatches reports whether a lockfile pin covers a workflow ref. A
+// partial ref is narrowed to a full tag by gh actions-lock (v4 -> v4.2.1),
+// so a prefix match on the same partial ref counts as locked.
+func lockSpecMatches(spec, ref string) bool {
+	if ref == "" {
+		return false
+	}
+	if spec == ref {
+		return true
+	}
+	return partialSemver.MatchString(ref) && strings.HasPrefix(spec, ref+".")
 }
 
 var execCommand = exec.Command

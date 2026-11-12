@@ -535,6 +535,23 @@ func TestSavePins_NoManifestNoop(t *testing.T) {
 	}
 }
 
+func TestAuditJSON_ScanFailureMapsToUnavailable(t *testing.T) {
+	resetAuditFixState()
+	defer resetAuditFixState()
+	auditTestRepo(t, "v4")
+
+	old := auditScan
+	auditScan = func(context.Context, []parser.ActionRef) ([]vulnscanner.Finding, error) {
+		return nil, errors.New("offline")
+	}
+	defer func() { auditScan = old }()
+
+	err := runAuditCommand(t, "audit", "--json")
+	if !errors.Is(err, errAuditUnavailable) {
+		t.Fatalf("expected errAuditUnavailable, got %v", err)
+	}
+}
+
 func TestAuditFixAlreadyPast(t *testing.T) {
 	resetAuditFixState()
 	defer resetAuditFixState()

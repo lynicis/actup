@@ -25,9 +25,7 @@ var outdatedCmd = &cobra.Command{
 version actup would upgrade it to, then exits with status 1 if any were
 found — like "nvm outdated". Config pins are honored: an action pinned to
 an exact version is never outdated, and a major pin only compares within
-that major.
-
-This is the subcommand form of the --check flag.`,
+that major.`,
 	Example: `  actup outdated
   actup outdated --semver`,
 	RunE: runOutdated,

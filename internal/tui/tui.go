@@ -493,7 +493,8 @@ func (m model) applyUpgrades() tea.Msg {
 		}
 	}
 
-	err := upgrader.ApplyAllUpgrades(upgrades, m.dryRun)
+	writeErr := upgrader.ApplyAllUpgrades(upgrades, m.dryRun)
+	err := writeErr
 	if !m.dryRun && err == nil && m.cfg != nil && m.cfg.IsManaged() {
 		if m.cfg.Actions == nil {
 			m.cfg.Actions = map[string]string{}
@@ -510,7 +511,8 @@ func (m model) applyUpgrades() tea.Msg {
 	}
 
 	// Keep actions.lock in step with rewritten workflows; stay silent in the TUI.
-	if !m.dryRun && err == nil && len(upgrades) > 0 {
+	// A manifest save failure must not leave the lockfile stale.
+	if !m.dryRun && writeErr == nil && len(upgrades) > 0 {
 		if lf, lerr := lockfile.LoadForPaths(m.paths); lerr == nil && lf != nil {
 			_ = lockfile.Sync(lf.Path)
 		}
