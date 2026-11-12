@@ -16,7 +16,39 @@ const schemaHeader = "# yaml-language-server: $schema=https://raw.githubusercont
 
 type Config struct {
 	Major   *int              `yaml:"major,omitempty"`
-	Actions map[string]string `yaml:"actions,omitempty"`
+	SHA     bool              `yaml:"sha,omitempty"`     // write refs as SHA + "# tag"
+	Actions map[string]string `yaml:"actions,omitempty"` // recorded workflow state (lock)
+	// Pins holds user-authored constraints for managed manifests.
+	// nil means a legacy manifest: every Actions entry is a constraint.
+	Pins map[string]string `yaml:"pins,omitempty"`
+	// Groups are named action-glob patterns selectable with --group.
+	Groups map[string][]string `yaml:"groups,omitempty"`
+}
+
+func (c *Config) IsManaged() bool { return c != nil && c.Pins != nil }
+
+// EffectivePins returns explicit constraints, or Actions for legacy manifests.
+// Numeric majors and "skip" are always constraints, even when they appear in
+// the recorded Actions section of a managed manifest.
+func (c *Config) EffectivePins() map[string]string {
+	if c == nil {
+		return nil
+	}
+	if c.Pins == nil {
+		return c.Actions
+	}
+	out := maps.Clone(c.Pins)
+	for key, value := range c.Actions {
+		if value != "skip" {
+			if _, err := strconv.Atoi(value); err != nil {
+				continue
+			}
+		}
+		if _, exists := out[key]; !exists {
+			out[key] = value
+		}
+	}
+	return out
 }
 
 func LoadDefault() (*Config, error) {
@@ -87,11 +119,38 @@ func Render(cfg *Config) string {
 		fmt.Fprintf(&b, "\nmajor: %d\n", *cfg.Major)
 	}
 
+	if cfg.SHA {
+		b.WriteString("\nsha: true\n")
+	}
+
+	if cfg.Pins != nil {
+		if len(cfg.Pins) == 0 {
+			b.WriteString("\npins: {}\n")
+		} else {
+			b.WriteString("\npins:\n")
+			for _, key := range slices.Sorted(maps.Keys(cfg.Pins)) {
+				fmt.Fprintf(&b, "  %s: %s\n", formatScalar(key), formatScalar(cfg.Pins[key]))
+			}
+		}
+	}
+
 	if len(cfg.Actions) > 0 {
 		b.WriteString("\nactions:\n")
 		keys := slices.Sorted(maps.Keys(cfg.Actions))
 		for _, key := range keys {
 			fmt.Fprintf(&b, "  %s: %s\n", formatScalar(key), formatScalar(cfg.Actions[key]))
+		}
+	}
+
+	if len(cfg.Groups) > 0 {
+		b.WriteString("\ngroups:\n")
+		for _, name := range slices.Sorted(maps.Keys(cfg.Groups)) {
+			patterns := slices.Clone(cfg.Groups[name])
+			slices.Sort(patterns)
+			fmt.Fprintf(&b, "  %s:\n", formatScalar(name))
+			for _, p := range patterns {
+				fmt.Fprintf(&b, "    - %s\n", formatScalar(p))
+			}
 		}
 	}
 

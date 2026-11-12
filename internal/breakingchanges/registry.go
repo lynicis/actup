@@ -3,6 +3,7 @@ package breakingchanges
 import (
 	_ "embed"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,9 @@ type Registry struct {
 	entries []Entry
 }
 
+// New builds a registry from explicit entries for tests.
+func New(entries []Entry) *Registry { return &Registry{entries: entries} }
+
 func LoadRegistry() (*Registry, error) {
 	var entries []Entry
 	if err := yaml.Unmarshal(registryData, &entries); err != nil {
@@ -39,7 +43,7 @@ func LoadRegistry() (*Registry, error) {
 	return &Registry{entries: entries}, nil
 }
 
-func (r *Registry) Check(action string, fromVersion string, toVersion string) []BreakingChange {
+func (r *Registry) Check(action string, fromVersion string, toVersion string, inputs []string) []BreakingChange {
 	fromMajor := parseMajor(fromVersion)
 	toMajor := parseMajor(toVersion)
 
@@ -52,17 +56,24 @@ func (r *Registry) Check(action string, fromVersion string, toVersion string) []
 		if entry.Action != action {
 			continue
 		}
-		if fromMajor < entry.FromMajor {
-			continue
-		}
-		if entry.ToMajor != 0 && toMajor > entry.ToMajor {
-			continue
-		}
-		if fromMajor >= entry.ToMajor && entry.ToMajor != 0 {
-			continue
+		if entry.ToMajor != 0 {
+			// Include when the upgrade crosses this boundary.
+			if fromMajor >= entry.ToMajor || toMajor < entry.ToMajor {
+				continue
+			}
+		} else {
+			// to_major: 0 means "introduced in FromMajor and still relevant".
+			if fromMajor >= entry.FromMajor || toMajor < entry.FromMajor {
+				continue
+			}
 		}
 		// ponytail: simplified loop to slice append
-		results = append(results, entry.Changes...)
+		for _, bc := range entry.Changes {
+			if bc.Input != "" && !slices.Contains(inputs, bc.Input) {
+				continue
+			}
+			results = append(results, bc)
+		}
 	}
 	return results
 }

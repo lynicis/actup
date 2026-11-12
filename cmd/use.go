@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lynicis/actup/internal/breakingchanges"
+	"github.com/lynicis/actup/internal/config"
 	"github.com/lynicis/actup/internal/github"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/upgrader"
@@ -22,6 +23,8 @@ type useOptions struct {
 	force  bool
 	dryRun bool
 	noSave bool
+	sha    bool
+	shaSet bool
 }
 
 var useOpts useOptions
@@ -43,7 +46,8 @@ Use --no-save to update workflows without touching .actup.yaml.`,
 	Example: `  actup use actions/checkout@v5
   actup use actions/checkout@5 actions/setup-go@latest
   actup use actions/checkout@v5 --no-save
-  actup use actions/checkout@v5 --dry-run`,
+  actup use actions/checkout@v5 --dry-run
+  actup use actions/checkout@v5 --sha`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: runUse,
 }
@@ -55,6 +59,7 @@ func init() {
 	useCmd.Flags().BoolVarP(&useOpts.force, "force", "f", false, "Apply upgrades with breaking changes without prompting")
 	useCmd.Flags().BoolVar(&useOpts.dryRun, "dry-run", false, "Preview changes without writing files or saving pins")
 	useCmd.Flags().BoolVar(&useOpts.noSave, "no-save", false, "Do not record the version in .actup.yaml")
+	useCmd.Flags().BoolVar(&useOpts.sha, "sha", false, "Write refs as full commit SHAs with the tag in a trailing comment")
 	rootCmd.AddCommand(useCmd)
 }
 
@@ -70,6 +75,7 @@ func runUse(cmd *cobra.Command, args []string) error {
 		specs = append(specs, spec)
 	}
 
+	useOpts.shaSet = cmd.Flags().Changed("sha")
 	return doUse(ctx, specs, useOpts)
 }
 
@@ -85,7 +91,16 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load breaking-change registry: %v\n", err)
 	}
 
-	client := clientForSpecs(specs, opts.token)
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ Failed to load config: %v\n", err)
+	}
+	sha := cfg != nil && cfg.SHA
+	if opts.shaSet {
+		sha = opts.sha
+	}
+
+	client := clientForSpecs(specs, opts.token, sha || anyRefPinned(actions))
 	reader := bufio.NewReader(os.Stdin)
 	isTTY := isTerminal()
 
@@ -101,6 +116,20 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 		}
 
 		refs := grouped[spec.Key]
+		if isCommitSHA(target) {
+			fmt.Printf("✗ %s: pin a tag and use sha: true\n", spec.Key)
+			continue
+		}
+		resolveSHA := sha || anyRefPinned(refs)
+		newSHA := ""
+		if resolveSHA {
+			owner, repo := splitActionKey(spec.Key)
+			newSHA, err = client.ResolveTagSHA(ctx, owner, repo, target)
+			if err != nil {
+				fmt.Printf("✗ %s: %v\n", spec.Key, err)
+				continue
+			}
+		}
 
 		proceed := true
 		if len(refs) > 0 {
@@ -117,8 +146,17 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 		}
 
 		if len(refs) > 0 {
-			if changed := applyUseToFileRefs(spec.Key, refs, target, opts.dryRun); changed {
+			if changed := applyUseToFileRefs(spec.Key, refs, target, newSHA, sha, opts.dryRun); changed {
 				updatedActions++
+				if resolveSHA && !opts.dryRun && !opts.noSave {
+					if cfg == nil {
+						cfg = &config.Config{}
+					}
+					cfg.SHA = true
+					if err := config.SaveDefault(cfg); err != nil {
+						fmt.Fprintf(os.Stderr, "⚠ Failed to save sha setting: %v\n", err)
+					}
+				}
 			}
 		} else {
 			fmt.Printf("ⓘ %s: not used in any workflow\n", spec.Key)
@@ -149,10 +187,11 @@ func doUse(ctx context.Context, specs []actionSpec, opts useOptions) error {
 	return nil
 }
 
-// clientForSpecs returns a GitHub client, or nil when no spec needs one
-// (all specs carry a verbatim ref, so no API calls are required).
-func clientForSpecs(specs []actionSpec, ghToken string) *github.Client {
-	needsClient := false
+// clientForSpecs returns a GitHub client, or nil when no spec needs one.
+// Verbatim refs need no API call unless SHA mode is effective or a workflow
+// ref is already SHA-pinned (the tag must be resolved to a commit SHA).
+func clientForSpecs(specs []actionSpec, ghToken string, needsAPI bool) *github.Client {
+	needsClient := needsAPI
 	for _, spec := range specs {
 		if spec.Ref == "" || spec.Ref == "latest" {
 			needsClient = true
@@ -178,26 +217,22 @@ func checkUseBreaking(key string, refs []parser.ActionRef, target string, regist
 
 // applyUseToFileRefs rewrites every workflow reference for the action to
 // target and reports whether anything changed.
-func applyUseToFileRefs(key string, refs []parser.ActionRef, target string, dryRun bool) bool {
-	uniqueCurrents := map[string]bool{}
-	for _, ref := range refs {
-		uniqueCurrents[ref.Current] = true
-	}
-	if len(uniqueCurrents) == 1 {
-		for current := range uniqueCurrents {
-			if current == target {
-				fmt.Printf("⏭ %s: already at %s\n", key, target)
-				return false
-			}
-		}
-	}
-
+func applyUseToFileRefs(key string, refs []parser.ActionRef, target, newSHA string, forceSHA bool, dryRun bool) bool {
 	upgrades := make([]upgrader.Upgrade, 0, len(refs))
 	for _, ref := range refs {
-		if ref.Current == target {
+		writeSHA := forceSHA || ref.Pinned()
+		if writeSHA {
+			if ref.SHA == newSHA && ref.Tag == target {
+				continue
+			}
+		} else if ref.Version() == target {
 			continue
 		}
-		upgrades = append(upgrades, upgrader.Upgrade{Action: ref, NewTag: target})
+		refSHA := ""
+		if writeSHA {
+			refSHA = newSHA
+		}
+		upgrades = append(upgrades, upgrader.Upgrade{Action: ref, NewTag: target, NewSHA: refSHA})
 	}
 	if len(upgrades) == 0 {
 		fmt.Printf("⏭ %s: already at %s\n", key, target)
@@ -227,6 +262,10 @@ func printUseDiff(u upgrader.Upgrade) {
 		path = a.Owner + "/" + a.Repo
 	}
 	oldLine := fmt.Sprintf("uses: %s@%s", path, a.Current)
-	newLine := fmt.Sprintf("uses: %s@%s", path, u.NewTag)
+	newRef := u.NewTag
+	if u.NewSHA != "" {
+		newRef = u.NewSHA + " # " + u.NewTag
+	}
+	newLine := fmt.Sprintf("uses: %s@%s", path, newRef)
 	fmt.Printf("--- a/%s\n+++ b/%s\n@@ -%d,1 +%d,1 @@\n-%s\n+%s\n", a.File, a.File, a.Line, a.Line, oldLine, newLine)
 }

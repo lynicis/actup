@@ -64,6 +64,10 @@ func runPin(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("%s is not used in any workflow; specify a version explicitly: actup pin %s@<ref>", spec.Key, spec.Key)
 		}
 		ref = mostCommonVersion(refs)
+		if ref == "" {
+			fmt.Printf("ⓘ %s: SHA-pinned without a version comment\n", spec.Key)
+			return nil
+		}
 	}
 
 	if pinOpts.dryRun {
@@ -88,7 +92,7 @@ func runUnpin(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if cfg == nil || cfg.Actions[spec.Key] == "" {
+	if cfg == nil || cfg.EffectivePins()[spec.Key] == "" {
 		fmt.Printf("⏭ %s is not pinned\n", spec.Key)
 		return nil
 	}
@@ -99,6 +103,7 @@ func runUnpin(cmd *cobra.Command, args []string) error {
 	}
 
 	delete(cfg.Actions, spec.Key)
+	delete(cfg.Pins, spec.Key)
 	if err := config.SaveDefault(cfg); err != nil {
 		return err
 	}

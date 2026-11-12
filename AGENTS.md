@@ -14,11 +14,11 @@ Standard Go CLI layout using Cobra:
 - `main.go` → `cmd/root.go` orchestrates packages
 - `cmd/` — root command (scan + upgrade flow) plus version-manager subcommands: `use`, `pin`/`unpin`, `ls`, `sync`, `init`, `outdated` (one file each), `audit` (OSV.dev vulnerability scan), and shared helpers in `cmd/common.go` (workflow loading, `actionSpec` parsing, ref resolution, breaking-change confirm, vuln warnings)
 - `internal/scanner` — discovers `.yml`/`.yaml` workflow files (default: `.github/workflows/`)
-- `internal/parser` — extracts `uses:` refs; skips `./local`, `docker://`, and full SHA commits
-- `internal/github` — GitHub API client (`go-github/v62`); fetches latest tags with dual mode (major-tag or full semver) and in-memory cache
+- `internal/parser` — extracts `uses:` refs; skips `./local`, `docker://`, and matrix expressions; parses full commit SHAs plus an optional `# <tag>` comment, and `ActionRef.Version()` is the comparison primitive everywhere (OSV, breaking changes, outdated, ls, init, TUI)
+- `internal/github` — GitHub API client (`go-github/v89`); fetches latest tags with dual mode (major-tag or full semver), resolves tags to commit SHAs (`ResolveTagSHA`), and caches in memory
 - `internal/token` — resolves GitHub token via flag → `GITHUB_TOKEN` env → `gh auth token` CLI fallback
 - `internal/breakingchanges` — embedded YAML registry (`//go:embed registry.yaml`) for known breaking changes between major versions; uses `goccy/go-yaml` for parsing
-- `internal/config` — loads `.actup.yaml`/`.actup.yml` (manifest: `major` + per-action `actions` pins/skip); also saves it via deterministic `Render`/`Save`/`SaveDefault` (comments are not preserved; schema header is emitted; numeric-looking values are quoted)
+- `internal/config` — loads `.actup.yaml`/`.actup.yml` (manifest: `major`, `sha`, `pins` constraints, recorded `actions` state, and named `groups`); `Pins == nil` is a legacy manifest where every `actions` entry is a constraint, and `EffectivePins()` is the resolution source. Also saves it via deterministic `Render`/`Save`/`SaveDefault` (comments are not preserved; schema header is emitted; numeric-looking values are quoted)
 - `internal/tui` — Bubble Tea interactive checklist with detail view for breaking changes and vulnerabilities
 - `internal/upgrader` — atomic file edits via temp-file + rename; supports both single-tag and per-action upgrade maps
 - `internal/vulnscanner` — OSV.dev advisory client for the GitHub Actions ecosystem: `querybatch` lookups plus parallel `/vulns/{id}` detail fetches, with client-side version-range matching (OSV does not match versions server-side for this ecosystem)
@@ -102,7 +102,7 @@ make install               # go install .
 
 ## Dependency notes
 
-- `go-github/v62` is the API client. If upgrading to v63+, ensure the API signatures haven't changed.
+- `go-github/v89` is the API client. If upgrading, ensure the API signatures haven't changed.
 - `golang.org/x/mod` is used for semver parsing and sorting.
 - `golang.org/x/oauth2` is the OAuth2 transport for GitHub API authentication.
 - `golang.org/x/term` is used for TTY detection in non-interactive mode.

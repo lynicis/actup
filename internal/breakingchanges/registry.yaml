@@ -2,12 +2,139 @@
   from_major: 2
   to_major: 3
   changes:
-    - type: renamed
-      input: "github_token"
-      replacement: "token"
-      message: "The `github_token` input has been renamed to `token`."
+    - type: behavior
+      message: "checkout v3 runs on Node 16; self-hosted runners must support Node 16."
+
+- action: "actions/checkout"
+  from_major: 3
+  to_major: 4
+  changes:
+    - type: behavior
+      message: "checkout v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "actions/upload-artifact"
+  from_major: 3
+  to_major: 4
+  changes:
+    - type: behavior
+      message: "upload-artifact v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+    - type: behavior
+      message: "upload-artifact v4 artifact names are immutable, and hidden files are excluded by default."
+
+- action: "actions/download-artifact"
+  from_major: 3
+  to_major: 4
+  changes:
+    - type: behavior
+      message: "download-artifact v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+    - type: behavior
+      message: "download-artifact v4 makes the name input optional; omitting it downloads all artifacts into per-artifact directories."
+
+- action: "actions/cache"
+  from_major: 3
+  to_major: 4
+  changes:
+    - type: behavior
+      message: "cache v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+    - type: behavior
+      message: "cache v4 requires the cache service v2 backend."
+
+- action: "actions/setup-node"
+  from_major: 3
+  to_major: 4
+  changes:
+    - type: behavior
+      message: "setup-node v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "actions/setup-go"
+  from_major: 4
+  to_major: 5
+  changes:
+    - type: behavior
+      message: "setup-go v5 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "actions/setup-python"
+  from_major: 4
+  to_major: 5
+  changes:
+    - type: behavior
+      message: "setup-python v5 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "actions/setup-java"
+  from_major: 3
+  to_major: 4
+  changes:
+    - type: behavior
+      message: "setup-java v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "actions/github-script"
+  from_major: 6
+  to_major: 7
+  changes:
+    - type: behavior
+      message: "github-script v7 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "docker/build-push-action"
+  from_major: 4
+  to_major: 5
+  changes:
+    - type: behavior
+      message: "build-push-action v5 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "docker/login-action"
+  from_major: 2
+  to_major: 3
+  changes:
+    - type: behavior
+      message: "login-action v3 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "docker/setup-buildx-action"
+  from_major: 2
+  to_major: 3
+  changes:
+    - type: behavior
+      message: "setup-buildx-action v3 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "goreleaser/goreleaser-action"
+  from_major: 4
+  to_major: 5
+  changes:
+    - type: behavior
+      message: "goreleaser-action v5 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "golangci/golangci-lint-action"
+  from_major: 3
+  to_major: 4
+  changes:
+    - type: behavior
+      message: "golangci-lint-action v4 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "peter-evans/create-pull-request"
+  from_major: 5
+  to_major: 6
+  changes:
+    - type: behavior
+      message: "create-pull-request v6 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "hashicorp/setup-terraform"
+  from_major: 2
+  to_major: 3
+  changes:
+    - type: behavior
+      message: "setup-terraform v3 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "actions/stale"
+  from_major: 8
+  to_major: 9
+  changes:
+    - type: behavior
+      message: "stale v9 runs on Node 20; self-hosted runners must be v2.308.0 or newer."
+
+- action: "codecov/codecov-action"
+  from_major: 3
+  to_major: 4
+  changes:
     - type: deprecated
-      input: "app_url"
-      replacement: "url"
-      context: "repository"
-      message: "The `app_url` input is deprecated. Use `url` under the `repository` block instead."
+      input: "file"
+      replacement: "files"
+      message: "The `file` input is deprecated in favor of `files`."

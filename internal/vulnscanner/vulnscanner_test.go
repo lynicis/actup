@@ -380,3 +380,158 @@ func simpleVuln(id, pkg, introduced, fixed string) map[string]any {
 		},
 	}
 }
+
+func TestScanSHARefWithCommentMatches(t *testing.T) {
+	m := newMockOSV(t)
+	m.addVuln("vuln/pkg", simpleVuln("GHSA-SHA-1", "vuln/pkg", "0", "41"))
+
+	client := m.client()
+	actions := []parser.ActionRef{{
+		Owner: "vuln", Repo: "pkg",
+		Current: "0123456789abcdef0123456789abcdef01234567",
+		SHA:     "0123456789abcdef0123456789abcdef01234567",
+		Tag:     "v40",
+		File:    "wf.yml", Line: 7,
+	}}
+	findings, err := client.Scan(context.Background(), actions)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding for SHA+comment, got %d", len(findings))
+	}
+	if findings[0].Ref != actions[0].Current {
+		t.Errorf("Finding.Ref = %q, want raw SHA %q", findings[0].Ref, actions[0].Current)
+	}
+}
+
+func TestScanBareSHANoFinding(t *testing.T) {
+	m := newMockOSV(t)
+	m.addVuln("vuln/pkg", simpleVuln("GHSA-SHA-2", "vuln/pkg", "0", "41"))
+
+	client := m.client()
+	actions := []parser.ActionRef{{
+		Owner: "vuln", Repo: "pkg",
+		Current: "0123456789abcdef0123456789abcdef01234567",
+		SHA:     "0123456789abcdef0123456789abcdef01234567",
+		File:    "wf.yml", Line: 7,
+	}}
+	findings, err := client.Scan(context.Background(), actions)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("bare SHA has no version to match; expected 0 findings, got %d", len(findings))
+	}
+}
+
+// osvFromMap decodes a fixture map into osvVuln for direct unit tests.
+func osvFromMap(t *testing.T, v map[string]any) *osvVuln {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	var out osvVuln
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatalf("unmarshal fixture: %v", err)
+	}
+	return &out
+}
+
+func multiIntervalVuln(pkg string) map[string]any {
+	return map[string]any{
+		"id": "GHSA-MULTI-1",
+		"affected": []map[string]any{
+			{
+				"package": map[string]any{"name": pkg, "ecosystem": "GitHub Actions"},
+				"ranges": []map[string]any{
+					{
+						"type": "ECOSYSTEM",
+						"events": []map[string]any{
+							{"introduced": "0"},
+							{"fixed": "2"},
+							{"introduced": "5"},
+							{"fixed": "5.3"},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestFixedFor_MultiInterval(t *testing.T) {
+	v := osvFromMap(t, multiIntervalVuln("multi/pkg"))
+	if got := v.fixedFor("multi/pkg", "v5.2"); got != "5.3" {
+		t.Errorf("fixedFor(v5.2) = %q, want 5.3", got)
+	}
+}
+
+func TestFixedFor_EarlierInterval(t *testing.T) {
+	v := osvFromMap(t, multiIntervalVuln("multi/pkg"))
+	if got := v.fixedFor("multi/pkg", "v1"); got != "2" {
+		t.Errorf("fixedFor(v1) = %q, want 2", got)
+	}
+}
+
+func TestFixedFor_VersionsOnly(t *testing.T) {
+	v := osvFromMap(t, map[string]any{
+		"id": "GHSA-VERSIONS-1",
+		"affected": []map[string]any{
+			{
+				"package":  map[string]any{"name": "ver/pkg", "ecosystem": "GitHub Actions"},
+				"versions": []string{"1.0.0"},
+			},
+		},
+	})
+	if got := v.fixedFor("ver/pkg", "v1"); got != "" {
+		t.Errorf("fixedFor(Versions-only) = %q, want empty", got)
+	}
+}
+
+func TestFixedFor_NoFixedEvent(t *testing.T) {
+	v := osvFromMap(t, map[string]any{
+		"id": "GHSA-OPEN-1",
+		"affected": []map[string]any{
+			{
+				"package": map[string]any{"name": "open/pkg", "ecosystem": "GitHub Actions"},
+				"ranges": []map[string]any{
+					{"type": "ECOSYSTEM", "events": []map[string]any{{"introduced": "0"}}},
+				},
+			},
+		},
+	})
+	if got := v.fixedFor("open/pkg", "v1"); got != "" {
+		t.Errorf("fixedFor(no fixed event) = %q, want empty", got)
+	}
+}
+
+// TestScanFixedIsRefSpecific pins the regression: the same advisory must
+// report the fix for the interval containing each site's version.
+func TestScanFixedIsRefSpecific(t *testing.T) {
+	m := newMockOSV(t)
+	m.addVuln("multi/pkg", multiIntervalVuln("multi/pkg"))
+
+	client := m.client()
+	actions := []parser.ActionRef{
+		{Owner: "multi", Repo: "pkg", Current: "v1", File: "a.yml", Line: 1},
+		{Owner: "multi", Repo: "pkg", Current: "v5.2", File: "b.yml", Line: 2},
+	}
+	findings, err := client.Scan(context.Background(), actions)
+	if err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 findings, got %d", len(findings))
+	}
+	wants := []string{"2", "5.3"}
+	for i, f := range findings {
+		if len(f.Vulns) != 1 {
+			t.Fatalf("finding %d: expected 1 vuln, got %d", i, len(f.Vulns))
+		}
+		if f.Vulns[0].Fixed != wants[i] {
+			t.Errorf("finding %d (ref %s): Fixed = %q, want %q", i, f.Ref, f.Vulns[0].Fixed, wants[i])
+		}
+	}
+}

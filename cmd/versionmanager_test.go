@@ -112,7 +112,7 @@ func TestDoUse_UpdatesWorkflowsAndSavesPin(t *testing.T) {
 		t.Fatalf("parseActionSpec: %v", err)
 	}
 
-	err = doUse(context.Background(), []actionSpec{spec}, useOptions{noSave: false})
+	err = doUse(context.Background(), []actionSpec{spec}, useOptions{noSave: false, force: true})
 	if err != nil {
 		t.Fatalf("doUse: %v", err)
 	}
@@ -181,7 +181,7 @@ func TestDoUse_AlreadyAtTarget(t *testing.T) {
 	path := writeWorkflow(t, dir, "ci.yml", testWorkflow)
 
 	spec, _ := parseActionSpec("actions/setup-go@v4")
-	if err := doUse(context.Background(), []actionSpec{spec}, useOptions{}); err != nil {
+	if err := doUse(context.Background(), []actionSpec{spec}, useOptions{force: true}); err != nil {
 		t.Fatalf("doUse: %v", err)
 	}
 
@@ -200,7 +200,7 @@ func TestDoSync_AppliesPins(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	err := doSync(context.Background(), syncOptions{})
+	err := doSync(context.Background(), syncOptions{force: true})
 	if err != nil {
 		t.Fatalf("doSync: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestDoSync_ExactRefsNeedNoToken(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	if err := doSync(context.Background(), syncOptions{}); err != nil {
+	if err := doSync(context.Background(), syncOptions{force: true}); err != nil {
 		t.Fatalf("doSync with exact refs should not hit the API: %v", err)
 	}
 }
@@ -338,5 +338,208 @@ func TestSummarizeActionVersions(t *testing.T) {
 	want := "v3 ×1, v4 ×2"
 	if got != want {
 		t.Errorf("summarizeActionVersions = %q, want %q", got, want)
+	}
+}
+
+func TestInitCreatesManagedManifest(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeWorkflow(t, dir, "ci.yml", testWorkflow)
+
+	if err := doInit(context.Background(), initOptions{}); err != nil {
+		t.Fatalf("doInit: %v", err)
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg == nil {
+		t.Fatal("expected managed manifest")
+	}
+	if cfg.Actions["actions/checkout"] != "v3" || cfg.Actions["actions/setup-go"] != "v4" {
+		t.Errorf("unexpected recorded actions: %v", cfg.Actions)
+	}
+	if cfg.Pins == nil {
+		t.Fatal("fresh init must produce a managed manifest (pins non-nil)")
+	}
+	if len(cfg.Pins) != 0 {
+		t.Errorf("fresh init must not add constraints, got %v", cfg.Pins)
+	}
+}
+
+func TestUseOnLegacyStaysLegacy(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeWorkflow(t, dir, "ci.yml", testWorkflow)
+	if err := os.WriteFile(".actup.yaml", []byte("actions:\n  actions/checkout: v3\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	spec, _ := parseActionSpec("actions/checkout@v5")
+	if err := doUse(context.Background(), []actionSpec{spec}, useOptions{force: true}); err != nil {
+		t.Fatalf("doUse: %v", err)
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Pins != nil {
+		t.Errorf("legacy manifest must not become managed, got pins %v", cfg.Pins)
+	}
+	if cfg.Actions["actions/checkout"] != "v5" {
+		t.Errorf("expected checkout=v5, got %q", cfg.Actions["actions/checkout"])
+	}
+}
+
+func TestUseOnManagedWritesPin(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeWorkflow(t, dir, "ci.yml", testWorkflow)
+	if err := os.WriteFile(".actup.yaml", []byte("pins: {}\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	spec, _ := parseActionSpec("actions/checkout@v5")
+	if err := doUse(context.Background(), []actionSpec{spec}, useOptions{force: true}); err != nil {
+		t.Fatalf("doUse: %v", err)
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Actions["actions/checkout"] != "v5" {
+		t.Errorf("expected recorded checkout=v5, got %q", cfg.Actions["actions/checkout"])
+	}
+	if cfg.Pins["actions/checkout"] != "v5" {
+		t.Errorf("expected constraint checkout=v5, got %q", cfg.Pins["actions/checkout"])
+	}
+}
+
+func TestUnpinRemovesBoth(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if err := os.WriteFile(".actup.yaml", []byte("pins:\n  actions/checkout: v5\nactions:\n  actions/checkout: v5\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := runUnpin(unpinCmd, []string{"actions/checkout"}); err != nil {
+		t.Fatalf("runUnpin: %v", err)
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if _, ok := cfg.Actions["actions/checkout"]; ok {
+		t.Error("key should be removed from actions")
+	}
+	if _, ok := cfg.Pins["actions/checkout"]; ok {
+		t.Error("key should be removed from pins")
+	}
+}
+
+func TestSyncRestoresSnapshotOnlyKey(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	path := writeWorkflow(t, dir, "ci.yml", testWorkflow)
+	if err := os.WriteFile(".actup.yaml", []byte("pins: {}\nactions:\n  actions/checkout: v1\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := doSync(context.Background(), syncOptions{force: true}); err != nil {
+		t.Fatalf("doSync: %v", err)
+	}
+
+	content, _ := os.ReadFile(path)
+	if strings.Count(string(content), "actions/checkout@v1") != 2 {
+		t.Errorf("sync should restore the recorded snapshot v1, got:\n%s", content)
+	}
+}
+
+func TestSyncPrefersPinOverSnapshot(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	path := writeWorkflow(t, dir, "ci.yml", testWorkflow)
+	if err := os.WriteFile(".actup.yaml", []byte("pins:\n  actions/checkout: v2\nactions:\n  actions/checkout: v1\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := doSync(context.Background(), syncOptions{force: true}); err != nil {
+		t.Fatalf("doSync: %v", err)
+	}
+
+	content, _ := os.ReadFile(path)
+	if strings.Count(string(content), "actions/checkout@v2") != 2 {
+		t.Errorf("sync should prefer the pin v2, got:\n%s", content)
+	}
+}
+
+func TestSyncRecordsActionsAfterSuccess(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	writeWorkflow(t, dir, "ci.yml", testWorkflow)
+	if err := os.WriteFile(".actup.yaml", []byte("pins:\n  actions/checkout: v5\nactions:\n  actions/checkout: v3\n"), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := doSync(context.Background(), syncOptions{force: true}); err != nil {
+		t.Fatalf("doSync: %v", err)
+	}
+
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Actions["actions/checkout"] != "v5" {
+		t.Errorf("expected recorded checkout=v5 after sync, got %q", cfg.Actions["actions/checkout"])
+	}
+}
+
+func TestRecordUpgrades_ManagedOnly(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	cfg := &config.Config{Actions: map[string]string{"actions/checkout": "v1"}, Pins: map[string]string{}}
+	if err := recordUpgrades(cfg, map[string]string{"actions/checkout": "v2"}); err != nil {
+		t.Fatalf("recordUpgrades: %v", err)
+	}
+
+	loaded, err := config.LoadDefault()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if loaded.Actions["actions/checkout"] != "v2" {
+		t.Errorf("expected saved action v2, got %q", loaded.Actions["actions/checkout"])
+	}
+	if loaded.Pins == nil {
+		t.Error("managed marker must survive the save")
+	}
+}
+
+func TestRecordUpgrades_LegacyNoop(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	cfg := &config.Config{Actions: map[string]string{"actions/checkout": "v1"}}
+	if err := recordUpgrades(cfg, map[string]string{"actions/checkout": "v2"}); err != nil {
+		t.Fatalf("recordUpgrades: %v", err)
+	}
+	if _, err := os.Stat(".actup.yaml"); err == nil {
+		t.Error("legacy manifests must not be written by recordUpgrades")
+	}
+}
+
+func TestRecordUpgrades_NoManifestNoop(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	if err := recordUpgrades(nil, map[string]string{"actions/checkout": "v2"}); err != nil {
+		t.Fatalf("recordUpgrades(nil) = %v, want nil", err)
+	}
+	if _, err := os.Stat(".actup.yaml"); err == nil {
+		t.Error("recordUpgrades must not create a manifest")
 	}
 }

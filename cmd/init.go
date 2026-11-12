@@ -20,12 +20,16 @@ var initOpts struct {
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Bootstrap .actup.yaml with the action versions currently in use",
-	Long: `Creates .actup.yaml pinning every action to the version currently used in
-your workflows. The manifest then becomes the source of truth for
+	Long: `Creates .actup.yaml recording the version currently used for every action
+in your workflows. The manifest then becomes the source of truth for
 "actup sync".
 
 If .actup.yaml already exists it is left untouched unless --force is given,
-in which case missing entries are added and existing pins are preserved.`,
+in which case missing entries are added and existing pins are preserved.
+
+--force also converts a legacy actions:-only manifest into a managed
+manifest: exact actions entries become recorded state (the lock), and
+constraints should then be added under pins:.`,
 	Example: `  actup init
   actup init --dry-run
   actup init --force   # merge into an existing .actup.yaml`,
@@ -59,7 +63,10 @@ func doInit(ctx context.Context, opts initOptions) error {
 
 	cfg := existing
 	if cfg == nil {
-		cfg = &config.Config{}
+		cfg = &config.Config{Pins: map[string]string{}}
+	} else if opts.force && cfg.Pins == nil {
+		// One-way migration: the legacy actions: entries become recorded state.
+		cfg.Pins = map[string]string{}
 	}
 	if cfg.Actions == nil {
 		cfg.Actions = map[string]string{}
@@ -71,7 +78,12 @@ func doInit(ctx context.Context, opts initOptions) error {
 		if _, exists := cfg.Actions[key]; exists {
 			continue
 		}
-		cfg.Actions[key] = mostCommonVersion(refs)
+		version := mostCommonVersion(refs)
+		if version == "" {
+			fmt.Printf("ⓘ %s: SHA-pinned without a version comment\n", key)
+			continue
+		}
+		cfg.Actions[key] = version
 		added++
 	}
 
@@ -82,10 +94,16 @@ func doInit(ctx context.Context, opts initOptions) error {
 		return nil
 	}
 
+	path := ".actup.yaml"
+	if _, err := os.Stat(".actup.yaml"); err != nil {
+		if _, err := os.Stat(".actup.yml"); err == nil {
+			path = ".actup.yml"
+		}
+	}
 	if err := config.SaveDefault(cfg); err != nil {
 		return err
 	}
-	fmt.Printf("✓ wrote .actup.yaml with %d pinned action(s)\n", added)
+	fmt.Printf("✓ wrote %s with %d recorded action(s)\n", path, added)
 	return nil
 }
 

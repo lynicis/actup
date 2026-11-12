@@ -55,6 +55,7 @@ actup --dry-run
 - **Non-interactive mode** — `--no-tui` upgrades everything; prompts on TTY for breaking changes (override with `--force`)
 - **Breaking-change detection** — embedded registry of known breaking changes between major versions
 - **Major-tag or full semver** — default resolves `v5`-style tags; `--semver` opts into `v5.3.1` pinning
+- **Commit SHA pinning** — `--sha` (or `sha: true` in the manifest) writes `@<sha> # <tag>`; existing SHA pins stay pinned
 - **Dry-run** — `--dry-run` previews a diff without touching files
 - **Atomic writes** — temp-file + rename prevents partial updates
 - **Concurrent API** — up to 5 parallel GitHub requests with in-memory caching
@@ -161,8 +162,20 @@ actup --no-tui
 # Preview changes without writing files
 actup --dry-run
 
+# Upgrade only matching actions (quote globs so the shell does not expand them)
+actup 'actions/*' --dry-run
+
+# Upgrade only actions in a manifest group
+actup --group ci
+
+# Combine positional filters and groups (union)
+actup 'docker/*' --group ci --no-tui
+
 # Use full semver tags instead of major tags (e.g., v5.3.1 instead of v5)
 actup --semver
+
+# Write full commit SHAs with the tag in a trailing comment (@<sha> # v5)
+actup --sha
 
 # Force upgrades past known breaking changes (non-interactive mode)
 actup --no-tui --force
@@ -269,20 +282,42 @@ gh auth login
 # Global default major version (overridden by --semver flag)
 major: 4
 
-# Per-action version pins
+# Write refs as full commit SHAs with the tag in a trailing comment
+sha: true
+
+# Version constraints you choose (major number, exact ref, or skip)
+pins:
+  actions/checkout: 4           # latest v4.x.x (resolved at sync/upgrade time)
+  actions/setup-go: v5.3.0      # exact version
+  some-org/some-action: skip    # exclude from upgrades
+
+# Recorded workflow state (the lock); actup rewrites this after upgrades
 actions:
-  actions/checkout: 4           # pin to latest v4.x.x (resolved at sync/upgrade time)
-  actions/setup-go: v5.3.0     # pin to exact version
-  some-org/some-action: skip   # exclude from upgrades
+  actions/checkout: v4.2.2
+  actions/setup-go: v5.3.0
+
+# Optional named action-glob groups selectable with `actup --group <name>`
+groups:
+  ci:
+    - actions/*
+    - docker/*
+  release:
+    - softprops/action-gh-release
 ```
 
-Pin semantics in `sync` and upgrade mode:
+`pins` holds what you asked for; `actions` records what your workflows currently use. Constraints:
 
 - **Exact ref** (`v5`, `v5.3.1`, `master`) — applied verbatim
 - **Major number** (`4`) — resolved to the latest tag within that major via the GitHub API
 - **`skip`** — the action is excluded from upgrades and syncing
 
+With `sha: true`, `sync` and upgrades resolve each target tag to its commit SHA and write `owner/repo@<sha> # <tag>`. Pins still store the tag; a bare SHA without the trailing comment has no version and is skipped by vulnerability and breaking-change checks. `use --sha`, `sync --sha`, and `--sha=false` override the manifest setting.
+
+A manifest without a `pins:` key is legacy: every `actions:` entry is treated as a constraint, exactly as before this split. Run `actup init --force` to migrate a legacy manifest once: its exact `actions:` entries become recorded state, and you can then add constraints under `pins:`.
+
 **Precedence**: CLI flags > config file > built-in defaults.
+
+Positional arguments are `path.Match` globs matched against `owner/repo` (the search is a union; `skip` still subtracts afterwards). Because `actup` accepts arbitrary positional filters, a typo such as `actup udpate` is treated as a filter rather than an unknown command — it fails with a no-match error before any network call or TUI start. Quote globs in your shell: `actup 'actions/*'`.
 
 ## Pre-commit Hooks
 
@@ -350,7 +385,7 @@ actup audit --json     # machine-readable output for CI
 - [x] Breaking-change detection with embedded registry
 - [x] Full semver tag resolution (`--semver`)
 - [x] Vulnerability audit against OSV.dev (`actup audit`)
-- [ ] Integration with `dependabot`-style grouped updates
+- [x] Grouped / filtered upgrades (`actup 'actions/*'`, `--group`)
 - [ ] Pre-upgrade hooks / custom validation
 
 See [open issues](https://github.com/lynicis/actup/issues) for the full list of proposed features and known issues.

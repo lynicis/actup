@@ -9,6 +9,10 @@
       "type": "integer",
       "description": "Global default target major version to upgrade actions to (e.g., 4)."
     },
+    "sha": {
+      "type": "boolean",
+      "description": "Write action refs as full commit SHAs with the tag in a trailing comment (e.g. '@<sha> # v4'). Existing SHA-pinned refs stay pinned."
+    },
     "actions": {
       "type": "object",
       "description": "Per-action configuration mapping action names (e.g., 'actions/checkout') to specific versions or behaviors.",
@@ -31,6 +35,35 @@
           "actions/setup-go": "skip"
         }
       ]
+    },
+    "pins": {
+      "type": "object",
+      "description": "User-authored version constraints. When present, the manifest is managed: exact entries in 'actions' are recorded workflow state, while constraints (major number, exact ref, or \"skip\") live here.",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "description": "Target major version (e.g., \"4\"), exact version (e.g., \"v4.1.2\", \"master\"), or \"skip\" to ignore this action."
+          },
+          {
+            "type": "integer",
+            "description": "Target major version (e.g., 4)."
+          }
+        ]
+      },
+      "examples": [
+        {
+          "actions/checkout": "4",
+          "securego/gosec": "master",
+          "actions/setup-go": "skip"
+        }
+      ]
+    },
+    "groups": {
+      "type": "object",
+      "description": "Named action-glob groups selectable with actup --group <name>.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "examples": [{ "ci": ["actions/*", "docker/*"] }]
     }
   },
   "additionalProperties": false

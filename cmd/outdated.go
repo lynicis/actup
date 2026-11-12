@@ -15,6 +15,7 @@ var outdatedOpts struct {
 	token  string
 	semver bool
 	major  int
+	groups []string
 }
 
 var outdatedCmd = &cobra.Command{
@@ -30,6 +31,7 @@ This is the subcommand form of the --check flag.`,
 	Example: `  actup outdated
   actup outdated --semver`,
 	RunE: runOutdated,
+	Args: cobra.ArbitraryArgs,
 }
 
 func init() {
@@ -37,6 +39,7 @@ func init() {
 	outdatedCmd.Flags().StringVarP(&outdatedOpts.token, "token", "t", "", "GitHub PAT (fallback: GITHUB_TOKEN env var, then gh auth token)")
 	outdatedCmd.Flags().BoolVarP(&outdatedOpts.semver, "semver", "s", false, "Resolve latest versions as full semver tags instead of major tags")
 	outdatedCmd.Flags().IntVarP(&outdatedOpts.major, "major", "m", 0, "Compare within a specific major version only (e.g. 4 for latest v4.x.x)")
+	outdatedCmd.Flags().StringArrayVar(&outdatedOpts.groups, "group", nil, "Only actions in a .actup.yaml group (repeatable)")
 	rootCmd.AddCommand(outdatedCmd)
 }
 
@@ -52,6 +55,10 @@ func runOutdated(cmd *cobra.Command, args []string) error {
 	}
 
 	actions, err := loadWorkflowActions(ctx, outdatedOpts.paths)
+	if err != nil {
+		return err
+	}
+	actions, err = applyActionFilters(actions, args, outdatedOpts.groups, cfg)
 	if err != nil {
 		return err
 	}

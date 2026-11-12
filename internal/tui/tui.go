@@ -45,7 +45,9 @@ type ActionItem struct {
 	Owner           string
 	Repo            string
 	Current         string
+	Currents        []string // all distinct versions, first-seen order
 	Latest          string
+	LatestSHA       string
 	FileCount       int
 	Selected        bool
 	UpToDate        bool
@@ -87,6 +89,7 @@ type model struct {
 	token      string
 	dryRun     bool
 	semverMode bool
+	shaMode    bool
 	majorVer   int
 	cfg        *config.Config
 	spinner    spinner.Model
@@ -100,7 +103,7 @@ type model struct {
 }
 
 // Run launches the interactive TUI.
-func Run(actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int, cfg *config.Config) error {
+func Run(actions []parser.ActionRef, token string, dryRun bool, semverMode bool, majorVer int, shaMode bool, cfg *config.Config) error {
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
 	sp.Style = normalStyle
@@ -110,6 +113,7 @@ func Run(actions []parser.ActionRef, token string, dryRun bool, semverMode bool,
 		token:      token,
 		dryRun:     dryRun,
 		semverMode: semverMode,
+		shaMode:    shaMode,
 		majorVer:   majorVer,
 		cfg:        cfg,
 		spinner:    sp,
@@ -260,24 +264,103 @@ func (m model) updateSummary(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// allAtLatest reports whether every ref already uses the latest version.
+func allAtLatest(acts []parser.ActionRef, latest string) bool {
+	for _, act := range acts {
+		if act.Version() != latest {
+			return false
+		}
+	}
+	return true
+}
+
+// allAtLatestSHA reports whether every ref is pinned to the latest SHA and
+// carries the latest tag in its comment.
+func allAtLatestSHA(acts []parser.ActionRef, latestSHA, latestTag string) bool {
+	for _, act := range acts {
+		if act.SHA != latestSHA || act.Tag != latestTag {
+			return false
+		}
+	}
+	return true
+}
+
+// allAtLatestMixed reports whether tag refs match the latest version while
+// SHA refs match both the latest SHA and its tag.
+func allAtLatestMixed(acts []parser.ActionRef, latestSHA, latestTag string) bool {
+	for _, act := range acts {
+		if act.Pinned() {
+			if act.SHA != latestSHA || act.Tag != latestTag {
+				return false
+			}
+			continue
+		}
+		if act.Version() != latestTag {
+			return false
+		}
+	}
+	return true
+}
+
+// versionsInUse returns distinct non-empty comparison versions in first-seen
+// order. Bare SHA refs have no version.
+func versionsInUse(refs []parser.ActionRef) []string {
+	seen := make(map[string]bool, len(refs))
+	var versions []string
+	for _, ref := range refs {
+		v := ref.Version()
+		if v == "" || seen[v] {
+			continue
+		}
+		seen[v] = true
+		versions = append(versions, v)
+	}
+	return versions
+}
+
+// anyRefPinned reports whether any ref is a commit SHA.
+func anyRefPinned(refs []parser.ActionRef) bool {
+	for _, ref := range refs {
+		if ref.Pinned() {
+			return true
+		}
+	}
+	return false
+}
+
+// breakingForAll unions breaking changes for every distinct current version,
+// deduping on (Type, Input, Message) in first-seen order.
+func breakingForAll(registry *breakingchanges.Registry, key string, currents []string, inputsByVersion map[string][]string, latest string) []breakingchanges.BreakingChange {
+	if registry == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var results []breakingchanges.BreakingChange
+	for _, current := range currents {
+		for _, bc := range registry.Check(key, current, latest, inputsByVersion[current]) {
+			id := bc.Type + "\x00" + bc.Input + "\x00" + bc.Message
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			results = append(results, bc)
+		}
+	}
+	return results
+}
+
 func (m model) loadActions() tea.Msg {
 	client := github.NewClient(m.token)
 	grouped := parser.GroupActions(m.actions)
 
 	registry, _ := breakingchanges.LoadRegistry()
 
+	cfgActions := m.cfg.EffectivePins()
 	skipKeys := make(map[string]bool)
-	if m.cfg != nil {
-		for key, pin := range m.cfg.Actions {
-			if pin == "skip" {
-				skipKeys[key] = true
-			}
+	for key, pin := range cfgActions {
+		if pin == "skip" {
+			skipKeys[key] = true
 		}
-	}
-
-	var cfgActions map[string]string
-	if m.cfg != nil {
-		cfgActions = m.cfg.Actions
 	}
 
 	keys := make([]string, 0, len(grouped))
@@ -295,11 +378,19 @@ func (m model) loadActions() tea.Msg {
 		parts := strings.SplitN(key, "/", 2)
 		owner := parts[0]
 		repo := parts[1]
+		currents := versionsInUse(acts)
+		inputsByVersion := map[string][]string{}
+		for _, ref := range acts {
+			if v := ref.Version(); v != "" {
+				inputsByVersion[v] = append(inputsByVersion[v], ref.Inputs...)
+			}
+		}
 
 		item := ActionItem{
 			Owner:     owner,
 			Repo:      repo,
 			Current:   acts[0].Current,
+			Currents:  currents,
 			FileCount: len(acts),
 		}
 
@@ -309,8 +400,22 @@ func (m model) loadActions() tea.Msg {
 				item.APIErrorMsg = r.Err.Error()
 			} else {
 				item.Latest = r.Latest
-				if r.Latest == acts[0].Current {
-					item.UpToDate = true
+				anyPinned := anyRefPinned(acts)
+				if m.shaMode || anyPinned {
+					sha, err := client.ResolveTagSHA(context.Background(), owner, repo, r.Latest)
+					if err != nil {
+						item.APIError = true
+						item.APIErrorMsg = err.Error()
+					} else {
+						item.LatestSHA = sha
+						if m.shaMode {
+							item.UpToDate = allAtLatestSHA(acts, item.LatestSHA, r.Latest)
+						} else {
+							item.UpToDate = allAtLatestMixed(acts, item.LatestSHA, r.Latest)
+						}
+					}
+				} else {
+					item.UpToDate = allAtLatest(acts, r.Latest)
 				}
 			}
 		}
@@ -320,7 +425,7 @@ func (m model) loadActions() tea.Msg {
 		}
 
 		if registry != nil && !item.UpToDate && !item.APIError {
-			item.BreakingChanges = registry.Check(key, item.Current, item.Latest)
+			item.BreakingChanges = breakingForAll(registry, key, item.Currents, inputsByVersion, item.Latest)
 		}
 
 		items = append(items, item)
@@ -358,17 +463,48 @@ func (m model) applyUpgrades() tea.Msg {
 			continue
 		}
 
+		var itemRefs []parser.ActionRef
 		for _, action := range m.actions {
 			if action.Owner == item.Owner && action.Repo == item.Repo {
-				upgrades = append(upgrades, upgrader.Upgrade{
-					Action: action,
-					NewTag: item.Latest,
-				})
+				itemRefs = append(itemRefs, action)
 			}
+		}
+		for _, action := range itemRefs {
+			writeSHA := m.shaMode || action.Pinned()
+			if writeSHA {
+				if action.SHA == item.LatestSHA && action.Tag == item.Latest {
+					continue
+				}
+			} else if action.Version() == item.Latest {
+				continue
+			}
+			newSHA := ""
+			if writeSHA {
+				newSHA = item.LatestSHA
+			}
+			upgrades = append(upgrades, upgrader.Upgrade{
+				Action: action,
+				NewTag: item.Latest,
+				NewSHA: newSHA,
+			})
 		}
 	}
 
 	err := upgrader.ApplyAllUpgrades(upgrades, m.dryRun)
+	if !m.dryRun && err == nil && m.cfg != nil && m.cfg.IsManaged() {
+		if m.cfg.Actions == nil {
+			m.cfg.Actions = map[string]string{}
+		}
+		for _, item := range m.items {
+			if item.Selected && !item.UpToDate && !item.APIError {
+				m.cfg.Actions[item.Owner+"/"+item.Repo] = item.Latest
+			}
+		}
+		// A failed save must not lose the run summary; the workflows were rewritten.
+		if saveErr := config.SaveDefault(m.cfg); saveErr != nil {
+			err = saveErr
+		}
+	}
 
 	var progress []progressItem
 	upgradedCount := 0
@@ -415,6 +551,36 @@ func (m model) applyUpgrades() tea.Msg {
 	}
 
 	return applyResult{progress: progress, summary: summary}
+}
+
+// versionSummary renders "v2 ×1, v4 ×1" for mixed-version groups, sorted for
+// deterministic output.
+func (m model) versionSummary(item ActionItem) string {
+	counts := map[string]int{}
+	for _, a := range m.actions {
+		if a.Owner == item.Owner && a.Repo == item.Repo {
+			v := a.Version()
+			if v == "" {
+				v = a.Current
+			}
+			counts[v]++
+		}
+	}
+	if len(counts) == 0 {
+		for _, v := range item.Currents {
+			counts[v]++
+		}
+	}
+	versions := make([]string, 0, len(counts))
+	for v := range counts {
+		versions = append(versions, v)
+	}
+	sort.Strings(versions)
+	parts := make([]string, 0, len(versions))
+	for _, v := range versions {
+		parts = append(parts, fmt.Sprintf("%s ×%d", v, counts[v]))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (m model) viewLoading() string {
@@ -487,7 +653,11 @@ func (m model) viewChecklist() string {
 
 		name := item.Owner + "/" + item.Repo
 		padding := strings.Repeat(" ", nameWidth-len(name))
-		line := fmt.Sprintf("  %s %s%s %s%s%s%s", prefix, name, padding, item.Current, change, suffix, desc)
+		current := item.Current
+		if len(item.Currents) > 1 {
+			current = m.versionSummary(item)
+		}
+		line := fmt.Sprintf("  %s %s%s %s%s%s%s", prefix, name, padding, current, change, suffix, desc)
 		b.WriteString(style.Render(line))
 		b.WriteString("\n")
 	}
@@ -508,7 +678,11 @@ func (m model) viewDetail() string {
 		b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Vulnerabilities", item.Owner, item.Repo)))
 		b.WriteString("\n\n")
 
-		fmt.Fprintf(&b, "  current version: %s\n\n", item.Current)
+		currentLabel := item.Current
+		if len(item.Currents) > 1 {
+			currentLabel = strings.Join(item.Currents, ", ")
+		}
+		fmt.Fprintf(&b, "  current version: %s\n\n", currentLabel)
 
 		for _, v := range item.Vulns {
 			severity := v.Severity
@@ -549,7 +723,14 @@ func (m model) viewDetail() string {
 	b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Breaking Changes", item.Owner, item.Repo)))
 	b.WriteString("\n\n")
 
-	fmt.Fprintf(&b, "  %s → %s\n\n", item.Current, item.Latest)
+	if len(item.Currents) > 1 {
+		for _, current := range item.Currents {
+			fmt.Fprintf(&b, "  %s → %s\n", current, item.Latest)
+		}
+		b.WriteString("\n")
+	} else {
+		fmt.Fprintf(&b, "  %s → %s\n\n", item.Current, item.Latest)
+	}
 
 	for _, bc := range item.BreakingChanges {
 		b.WriteString(amberStyle.Render(fmt.Sprintf("  ⚠ %s", bc.Message)))

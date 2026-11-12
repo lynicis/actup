@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -28,12 +30,59 @@ func loadWorkflowActions(ctx context.Context, paths []string) ([]parser.ActionRe
 		return nil, fmt.Errorf("failed to discover workflows: %w", err)
 	}
 	if len(files) == 0 {
-		return nil, errors.New("no workflow files found")
+		return nil, errors.New("no workflow or action files found")
 	}
 
 	actions, err := parser.ExtractActions(ctx, files)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse workflows: %w", err)
+	}
+	return actions, nil
+}
+
+// filterActionsByPatterns keeps refs whose owner/repo key matches at least one
+// path.Match pattern. Patterns are a union; empty patterns keeps everything.
+func filterActionsByPatterns(actions []parser.ActionRef, patterns []string) ([]parser.ActionRef, error) {
+	if len(patterns) == 0 {
+		return actions, nil
+	}
+	var out []parser.ActionRef
+	for _, a := range actions {
+		key := a.Owner + "/" + a.Repo
+		for _, p := range patterns {
+			ok, err := path.Match(p, key)
+			if err != nil {
+				return nil, fmt.Errorf("invalid filter %q: %w", p, err)
+			}
+			if ok {
+				out = append(out, a)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+// applyActionFilters unions positional patterns with the named config groups,
+// filters the actions, and errors when nothing matches.
+func applyActionFilters(actions []parser.ActionRef, args, groups []string, cfg *config.Config) ([]parser.ActionRef, error) {
+	patterns := append([]string{}, args...)
+	for _, g := range groups {
+		if cfg == nil {
+			return nil, fmt.Errorf("--group requires .actup.yaml")
+		}
+		pats, ok := cfg.Groups[g]
+		if !ok {
+			return nil, fmt.Errorf("unknown group %q", g)
+		}
+		patterns = append(patterns, pats...)
+	}
+	actions, err := filterActionsByPatterns(actions, patterns)
+	if err != nil {
+		return nil, err
+	}
+	if len(patterns) > 0 && len(actions) == 0 {
+		return nil, fmt.Errorf("no actions match %s", strings.Join(patterns, ", "))
 	}
 	return actions, nil
 }
@@ -86,27 +135,48 @@ func splitActionKey(key string) (owner, repo string) {
 }
 
 // mostCommonVersion returns the most frequently used version among refs,
-// breaking ties in favor of the first occurrence.
+// breaking ties in favor of the first occurrence. Bare SHA refs have an empty
+// Version and are ignored.
 func mostCommonVersion(refs []parser.ActionRef) string {
-	if len(refs) == 0 {
-		return ""
-	}
 	counts := make(map[string]int)
-	best := refs[0].Current
+	best := ""
 	bestCount := 0
 	for _, r := range refs {
-		counts[r.Current]++
-		if counts[r.Current] > bestCount {
-			best = r.Current
-			bestCount = counts[r.Current]
+		v := r.Version()
+		if v == "" {
+			continue
+		}
+		counts[v]++
+		if counts[v] > bestCount {
+			best = v
+			bestCount = counts[v]
 		}
 	}
 	return best
 }
 
+// anyRefPinned reports whether any ref is a commit SHA. An existing SHA pin
+// must stay a SHA pin even when --sha is not passed.
+func anyRefPinned(refs []parser.ActionRef) bool {
+	for _, ref := range refs {
+		if ref.Pinned() {
+			return true
+		}
+	}
+	return false
+}
+
+var commitSHARegex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+
+// isCommitSHA reports whether s is a full 40-hex commit SHA.
+func isCommitSHA(s string) bool { return commitSHARegex.MatchString(s) }
+
 // savePin records an action pin in the default .actup.yaml, creating the file
 // if needed and preserving other entries.
 func savePin(key, ref string) error {
+	if isCommitSHA(ref) {
+		return fmt.Errorf("pin a tag and use sha: true")
+	}
 	cfg, err := config.LoadDefault()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -118,6 +188,49 @@ func savePin(key, ref string) error {
 		cfg.Actions = map[string]string{}
 	}
 	cfg.Actions[key] = ref
+	if cfg.IsManaged() {
+		cfg.Pins[key] = ref
+	}
+	return config.SaveDefault(cfg)
+}
+
+// savePins records multiple pins with one load/save. It does nothing when no
+// manifest exists (audit must not create one).
+func savePins(pins map[string]string) error {
+	if len(pins) == 0 {
+		return nil
+	}
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	if cfg == nil {
+		return nil
+	}
+	if cfg.Actions == nil {
+		cfg.Actions = map[string]string{}
+	}
+	for key, ref := range pins {
+		cfg.Actions[key] = ref
+		if cfg.IsManaged() {
+			cfg.Pins[key] = ref
+		}
+	}
+	return config.SaveDefault(cfg)
+}
+
+// recordUpgrades updates a managed manifest after successful rewrites.
+// Legacy and absent manifests are left untouched.
+func recordUpgrades(cfg *config.Config, upgraded map[string]string) error {
+	if cfg == nil || !cfg.IsManaged() || len(upgraded) == 0 {
+		return nil
+	}
+	if cfg.Actions == nil {
+		cfg.Actions = map[string]string{}
+	}
+	for key, ref := range upgraded {
+		cfg.Actions[key] = ref
+	}
 	return config.SaveDefault(cfg)
 }
 
@@ -155,14 +268,21 @@ func confirmBreaking(action, from, to string, bcs []breakingchanges.BreakingChan
 // current version used with the action. It returns whether to proceed and
 // how many distinct versions were declined.
 func confirmBreakingAll(key string, refs []parser.ActionRef, target string, registry *breakingchanges.Registry, dryRun, force bool, reader *bufio.Reader, isTTY bool) (proceed bool, skipped int) {
-	seen := map[string]bool{}
+	inputsByVersion := map[string][]string{}
+	var versions []string
 	for _, ref := range refs {
-		if seen[ref.Current] {
-			continue
+		version := ref.Version()
+		if version == "" {
+			continue // unknown version cannot be checked
 		}
-		seen[ref.Current] = true
-		bcs := breakingChangesFor(registry, key, ref.Current, target)
-		ok, skip := confirmBreaking(key, ref.Current, target, bcs, dryRun, force, reader, isTTY)
+		if _, ok := inputsByVersion[version]; !ok {
+			versions = append(versions, version)
+		}
+		inputsByVersion[version] = append(inputsByVersion[version], ref.Inputs...)
+	}
+	for _, version := range versions {
+		bcs := breakingChangesFor(registry, key, version, target, dedupeInputs(inputsByVersion[version]))
+		ok, skip := confirmBreaking(key, version, target, bcs, dryRun, force, reader, isTTY)
 		if skip {
 			skipped++
 		}
@@ -171,6 +291,20 @@ func confirmBreakingAll(key string, refs []parser.ActionRef, target string, regi
 		}
 	}
 	return true, skipped
+}
+
+// dedupeInputs removes duplicate with: keys, preserving first-seen order.
+func dedupeInputs(inputs []string) []string {
+	seen := make(map[string]bool, len(inputs))
+	var out []string
+	for _, input := range inputs {
+		if seen[input] {
+			continue
+		}
+		seen[input] = true
+		out = append(out, input)
+	}
+	return out
 }
 
 // resolveToken returns the GitHub token to use: an explicit flag value,
@@ -192,11 +326,11 @@ func isTerminal() bool {
 
 // breakingChangesFor returns known breaking changes between two versions of
 // an action, or nil when the registry is unavailable.
-func breakingChangesFor(registry *breakingchanges.Registry, action, from, to string) []breakingchanges.BreakingChange {
+func breakingChangesFor(registry *breakingchanges.Registry, action, from, to string, inputs []string) []breakingchanges.BreakingChange {
 	if registry == nil {
 		return nil
 	}
-	return registry.Check(action, from, to)
+	return registry.Check(action, from, to, inputs)
 }
 
 // printVulnWarnings scans the given action refs against OSV.dev and prints a

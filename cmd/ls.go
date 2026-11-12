@@ -59,24 +59,21 @@ func runLs(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load config: %v\n", err)
 	}
-	var cfgActions map[string]string
-	if cfg != nil {
-		cfgActions = cfg.Actions
-	}
+	pins := cfg.EffectivePins()
 
 	if len(args) == 1 {
-		return runLsDetail(grouped, cfgActions, args[0])
+		return runLsDetail(grouped, pins, args[0])
 	}
-	return runLsTable(ctx, grouped, cfgActions)
+	return runLsTable(ctx, grouped, pins)
 }
 
-func runLsDetail(grouped map[string][]parser.ActionRef, cfgActions map[string]string, key string) error {
+func runLsDetail(grouped map[string][]parser.ActionRef, pins map[string]string, key string) error {
 	refs, ok := grouped[key]
 	if !ok {
 		return fmt.Errorf("%s is not used in any workflow", key)
 	}
 
-	pin := cfgActions[key]
+	pin := pins[key]
 	if pin == "" {
 		pin = "—"
 	}
@@ -97,13 +94,13 @@ func runLsDetail(grouped map[string][]parser.ActionRef, cfgActions map[string]st
 	return nil
 }
 
-func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, cfgActions map[string]string) error {
+func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, pins map[string]string) error {
 	keys := slices.Sorted(maps.Keys(grouped))
 
 	var latest map[string]string
 	if lsOpts.outdated {
 		var err error
-		latest, err = resolveLatestForAll(ctx, keys, cfgActions)
+		latest, err = resolveLatestForAll(ctx, keys, pins)
 		if err != nil {
 			return err
 		}
@@ -120,7 +117,7 @@ func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, cfgA
 		summary := summarizeActionVersions(grouped[key])
 		line := fmt.Sprintf("%-*s  %-24s", keyWidth, key, summary)
 
-		switch pin := cfgActions[key]; {
+		switch pin := pins[key]; {
 		case pin == "skip":
 			line += "  skip"
 		case pin != "":
@@ -130,18 +127,34 @@ func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, cfgA
 		}
 
 		if latest != nil {
-			if l, ok := latest[key]; ok && l != grouped[key][0].Current {
+			l, ok := latest[key]
+			if !ok {
+				fmt.Println(line)
+				continue
+			}
+			outdated := false
+			for _, ref := range grouped[key] {
+				current := ref.Version()
+				if current == "" {
+					current = ref.Current
+				}
+				if current != l {
+					outdated = true
+					break
+				}
+			}
+			if outdated {
 				line += fmt.Sprintf("  → %s", l)
-			} else if ok {
+			} else {
 				line += "  ✓"
 			}
 		}
 		fmt.Println(line)
 	}
 
-	if cfgActions != nil {
+	if pins != nil {
 		var unused []string
-		for key := range cfgActions {
+		for key := range pins {
 			if _, used := grouped[key]; !used {
 				unused = append(unused, key)
 			}
@@ -150,7 +163,7 @@ func runLsTable(ctx context.Context, grouped map[string][]parser.ActionRef, cfgA
 		if len(unused) > 0 {
 			fmt.Printf("\nPinned but not used in any workflow:\n")
 			for _, key := range unused {
-				fmt.Printf("  %s: %s\n", key, cfgActions[key])
+				fmt.Printf("  %s: %s\n", key, pins[key])
 			}
 		}
 	}
@@ -182,13 +195,13 @@ func summarizeActionVersions(refs []parser.ActionRef) string {
 
 // resolveLatestForAll resolves the latest version for every action key,
 // honoring config pins the same way --check does.
-func resolveLatestForAll(ctx context.Context, keys []string, cfgActions map[string]string) (map[string]string, error) {
+func resolveLatestForAll(ctx context.Context, keys []string, pins map[string]string) (map[string]string, error) {
 	ghToken := resolveToken(lsOpts.token)
 	client := github.NewClient(ghToken)
 
 	latest := make(map[string]string, len(keys))
 	for _, key := range keys {
-		v, err := github.ResolveVersion(ctx, client, key, lsOpts.semver, 0, cfgActions)
+		v, err := github.ResolveVersion(ctx, client, key, lsOpts.semver, 0, pins)
 		if err != nil {
 			return nil, err
 		}

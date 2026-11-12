@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/parser"
 	"github.com/lynicis/actup/internal/vulnscanner"
 )
@@ -327,5 +328,131 @@ func TestViewDetailVulnerabilities(t *testing.T) {
 		if !strings.Contains(clean, want) {
 			t.Errorf("detail view missing %q in output:\n%s", want, clean)
 		}
+	}
+}
+
+func TestAllAtLatest(t *testing.T) {
+	tests := []struct {
+		name   string
+		refs   []parser.ActionRef
+		latest string
+		want   bool
+	}{
+		{"mixed", []parser.ActionRef{{Current: "v4"}, {Current: "v2"}}, "v4", false},
+		{"same", []parser.ActionRef{{Current: "v4"}, {Current: "v4"}}, "v4", true},
+		{"empty", nil, "v4", true},
+	}
+	for _, tt := range tests {
+		if got := allAtLatest(tt.refs, tt.latest); got != tt.want {
+			t.Errorf("%s: allAtLatest = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestBreakingForAllDedupes(t *testing.T) {
+	reg := breakingchanges.New([]breakingchanges.Entry{{
+		Action:    "actions/checkout",
+		FromMajor: 2,
+		ToMajor:   3,
+		Changes:   []breakingchanges.BreakingChange{{Type: "behavior", Message: "runs on Node 16"}},
+	}})
+
+	changes := breakingForAll(reg, "actions/checkout", []string{"v1", "v2"}, map[string][]string{}, "v4")
+	if len(changes) != 1 {
+		t.Fatalf("expected 1 deduped change, got %d: %v", len(changes), changes)
+	}
+	if changes[0].Message != "runs on Node 16" {
+		t.Errorf("unexpected change: %v", changes[0])
+	}
+
+	if got := breakingForAll(nil, "actions/checkout", []string{"v1"}, map[string][]string{}, "v4"); got != nil {
+		t.Errorf("expected nil for nil registry, got %v", got)
+	}
+}
+
+func TestMixedVersionsRendering(t *testing.T) {
+	m := model{
+		state: stateChecklist,
+		items: []ActionItem{{
+			Owner: "actions", Repo: "checkout",
+			Current: "v2", Currents: []string{"v2", "v4"},
+			Latest: "v5", Selected: true, FileCount: 2,
+		}},
+		actions: []parser.ActionRef{
+			{Owner: "actions", Repo: "checkout", Current: "v4"},
+			{Owner: "actions", Repo: "checkout", Current: "v2"},
+		},
+	}
+
+	checklist := stripANSI(m.viewChecklist())
+	for _, want := range []string{"v2 ×1, v4 ×1", "→ v5"} {
+		if !strings.Contains(checklist, want) {
+			t.Errorf("checklist missing %q:\n%s", want, checklist)
+		}
+	}
+
+	m.state = stateDetail
+	detail := stripANSI(m.viewDetail())
+	for _, want := range []string{"v2 → v5", "v4 → v5"} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("detail missing %q:\n%s", want, detail)
+		}
+	}
+}
+
+func TestAllAtLatestSHA(t *testing.T) {
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	acts := []parser.ActionRef{
+		{Current: sha, SHA: sha, Tag: "v4"},
+		{Current: "v4"},
+	}
+	if !allAtLatest(acts, "v4") {
+		t.Error("a SHA pin with a v4 comment and a v4 tag are at latest")
+	}
+	acts[0].Tag = "v3"
+	if allAtLatest(acts, "v4") {
+		t.Error("a SHA pin at v3 must not be considered up to date")
+	}
+}
+
+func TestVersionsInUseSkipsBareSHA(t *testing.T) {
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	got := versionsInUse([]parser.ActionRef{
+		{Current: sha, SHA: sha},
+		{Current: "v4"},
+		{Current: "v4"},
+	})
+	if len(got) != 1 || got[0] != "v4" {
+		t.Errorf("versionsInUse = %v, want [v4]", got)
+	}
+}
+
+func TestAllAtLatestSHA_Predicate(t *testing.T) {
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	acts := []parser.ActionRef{{Current: sha, SHA: sha, Tag: "v4"}}
+	if !allAtLatestSHA(acts, sha, "v4") {
+		t.Error("matching SHA + tag should be up to date")
+	}
+	if allAtLatestSHA(acts, sha, "v5") {
+		t.Error("stale tag comment must not be up to date")
+	}
+	if allAtLatestSHA(acts, "89abcdef0123456789abcdef0123456789abcdef", "v4") {
+		t.Error("different SHA must not be up to date")
+	}
+}
+
+func TestAllAtLatestMixed(t *testing.T) {
+	sha := "0123456789abcdef0123456789abcdef01234567"
+	if !allAtLatestMixed([]parser.ActionRef{
+		{Current: "v4"},
+		{Current: sha, SHA: sha, Tag: "v4"},
+	}, sha, "v4") {
+		t.Error("tag and SHA refs at v4 should be up to date")
+	}
+	if allAtLatestMixed([]parser.ActionRef{
+		{Current: "v4"},
+		{Current: sha, SHA: sha, Tag: "v3"},
+	}, sha, "v4") {
+		t.Error("stale SHA comment must not be up to date")
 	}
 }

@@ -22,17 +22,19 @@ import (
 )
 
 var (
-	paths       []string
-	githubToken string
-	dryRun      bool
-	noTUI       bool
-	semverMode  bool
-	majorVer    int
-	force       bool
+	paths        []string
+	githubToken  string
+	dryRun       bool
+	noTUI        bool
+	semverMode   bool
+	majorVer     int
+	force        bool
+	shaFlag      bool
+	filterGroups []string
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "actup",
+	Use:   "actup [filter...]",
 	Short: "Version manager for GitHub Actions — pin, switch, and upgrade action versions",
 	Long: `actup is a version manager for GitHub Actions, like nvm is for Node or fvm for Flutter.
 
@@ -50,6 +52,7 @@ or use the version-manager subcommands:
 It detects known breaking changes between major versions and warns before
 upgrading, and checks workflows against OSV.dev advisories.`,
 	RunE: run,
+	Args: cobra.ArbitraryArgs,
 }
 
 func Execute() {
@@ -66,6 +69,8 @@ func init() {
 	rootCmd.Flags().BoolVarP(&semverMode, "semver", "s", false, "Upgrade to the latest full semver tag instead of the latest major tag (e.g. v5.3.1 instead of v5)")
 	rootCmd.Flags().IntVarP(&majorVer, "major", "m", 0, "Pin upgrades to a specific major version (e.g. 4 for latest v4.x.x)")
 	rootCmd.Flags().BoolVarP(&force, "force", "f", false, "Upgrade actions with breaking changes without prompting in non-interactive mode")
+	rootCmd.Flags().BoolVar(&shaFlag, "sha", false, "Write refs as full commit SHAs with the tag in a trailing comment")
+	rootCmd.Flags().StringArrayVar(&filterGroups, "group", nil, "Only actions in a .actup.yaml group (repeatable)")
 }
 
 func run(cmd *cobra.Command, args []string) error {
@@ -85,7 +90,7 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(files) == 0 {
-		return fmt.Errorf("no workflow files found")
+		return fmt.Errorf("no workflow or action files found")
 	}
 
 	actions, err := parser.ExtractActions(ctx, files)
@@ -102,6 +107,15 @@ func run(cmd *cobra.Command, args []string) error {
 			majorVer = *cfg.Major
 		}
 	}
+	shaMode := cfg != nil && cfg.SHA
+	if cmd.Flags().Changed("sha") {
+		shaMode = shaFlag
+	}
+
+	actions, err = applyActionFilters(actions, args, filterGroups, cfg)
+	if err != nil {
+		return err
+	}
 
 	actions = filterSkippedActions(actions, cfg)
 	if len(actions) == 0 {
@@ -115,20 +129,21 @@ func run(cmd *cobra.Command, args []string) error {
 	// hidden by the alt screen).
 	if noTUI {
 		printVulnWarnings(ctx, actions)
-		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force, cfg)
+		return runNoTUI(ctx, actions, githubToken, dryRun, semverMode, majorVer, force, shaMode, cfg)
 	}
 
-	return tui.Run(actions, githubToken, dryRun, semverMode, majorVer, cfg)
+	return tui.Run(actions, githubToken, dryRun, semverMode, majorVer, shaMode, cfg)
 }
 
 func filterSkippedActions(actions []parser.ActionRef, cfg *config.Config) []parser.ActionRef {
-	if cfg == nil || len(cfg.Actions) == 0 {
+	pins := cfg.EffectivePins()
+	if len(pins) == 0 {
 		return actions
 	}
 	var filtered []parser.ActionRef
 	for _, a := range actions {
 		key := a.Owner + "/" + a.Repo
-		if pin, ok := cfg.Actions[key]; ok && pin == "skip" {
+		if pin, ok := pins[key]; ok && pin == "skip" {
 			continue
 		}
 		filtered = append(filtered, a)
@@ -136,7 +151,7 @@ func filterSkippedActions(actions []parser.ActionRef, cfg *config.Config) []pars
 	return filtered
 }
 
-func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, majorVer int, force bool, cfg *config.Config) error {
+func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken string, dryRun bool, semverMode bool, majorVer int, force bool, shaMode bool, cfg *config.Config) error {
 	grouped := parser.GroupActions(actions)
 	ghClient := github.NewClient(githubToken)
 
@@ -145,14 +160,12 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load breaking-change registry: %v\n", err)
 	}
 
-	var cfgActions map[string]string
-	if cfg != nil {
-		cfgActions = cfg.Actions
-	}
+	cfgActions := cfg.EffectivePins()
 
 	keys := slices.Sorted(maps.Keys(grouped))
 	results := github.ResolveAll(ctx, ghClient, keys, semverMode, majorVer, cfgActions)
 
+	recorded := map[string]string{}
 	upgraded := 0
 	skipped := 0
 	apiErr := 0
@@ -163,7 +176,10 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 
 	for _, key := range keys {
 		acts := grouped[key]
-		current := acts[0].Current
+		current := acts[0].Version()
+		if current == "" {
+			current = acts[0].Current
+		}
 		r := results[key]
 
 		if r.Err != nil {
@@ -177,9 +193,26 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			continue
 		}
 
+		resolveSHA := shaMode || anyRefPinned(acts)
+		newSHA := ""
+		if resolveSHA {
+			owner, repo := splitActionKey(key)
+			var err error
+			newSHA, err = ghClient.ResolveTagSHA(ctx, owner, repo, r.Latest)
+			if err != nil {
+				apiErr++
+				fmt.Printf("⚠ %s: API error (%s)\n", key, err)
+				continue
+			}
+		}
+
 		var needsUpgrade []parser.ActionRef
 		for _, act := range acts {
-			if act.Current != r.Latest {
+			if shaMode || act.Pinned() {
+				if act.SHA != newSHA || act.Tag != r.Latest {
+					needsUpgrade = append(needsUpgrade, act)
+				}
+			} else if act.Version() != r.Latest {
 				needsUpgrade = append(needsUpgrade, act)
 			}
 		}
@@ -190,13 +223,8 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 			continue
 		}
 
-		bcs := breakingChangesFor(registry, key, current, r.Latest)
-
-		proceed, wasSkipped := confirmBreaking(key, current, r.Latest, bcs, dryRun, force, reader, isTTY)
-		if wasSkipped {
-			breakingSkipped++
-			continue
-		}
+		proceed, wasSkipped := confirmBreakingAll(key, acts, r.Latest, registry, dryRun, force, reader, isTTY)
+		breakingSkipped += wasSkipped
 		if !proceed {
 			continue
 		}
@@ -208,9 +236,14 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 		} else {
 			upgrades := make([]upgrader.Upgrade, 0, len(needsUpgrade))
 			for _, act := range needsUpgrade {
+				refSHA := ""
+				if shaMode || act.Pinned() {
+					refSHA = newSHA
+				}
 				upgrades = append(upgrades, upgrader.Upgrade{
 					Action: act,
 					NewTag: r.Latest,
+					NewSHA: refSHA,
 				})
 			}
 
@@ -220,7 +253,12 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 				continue
 			}
 			fmt.Printf("✓ %s: %s → %s\n", key, current, r.Latest)
+			recorded[key] = r.Latest
 		}
+	}
+
+	if err := recordUpgrades(cfg, recorded); err != nil {
+		return fmt.Errorf("record upgrades: %w", err)
 	}
 
 	fmt.Printf("\n%d actions upgraded, %d skipped (up to date), %d skipped (API error)", upgraded, skipped, apiErr)
@@ -243,10 +281,7 @@ func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, s
 	ghClient := github.NewClient(ghToken)
 	grouped := parser.GroupActions(actions)
 
-	var cfgActions map[string]string
-	if cfg != nil {
-		cfgActions = cfg.Actions
-	}
+	cfgActions := cfg.EffectivePins()
 
 	keys := slices.Sorted(maps.Keys(grouped))
 	results := github.ResolveAll(ctx, ghClient, keys, semverMode, majorVer, cfgActions)
@@ -262,7 +297,7 @@ func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, s
 	for _, key := range keys {
 		latest := results[key].Latest
 		for _, act := range grouped[key] {
-			if act.Current != latest {
+			if act.Version() != latest {
 				outdated = append(outdated, outdatedAction{
 					ActionRef: act,
 					Latest:    latest,
@@ -277,7 +312,11 @@ func runCheck(ctx context.Context, actions []parser.ActionRef, ghToken string, s
 	}
 
 	for _, oa := range outdated {
-		fmt.Printf("%s:%d: %s/%s %s → %s\n", oa.File, oa.Line, oa.Owner, oa.Repo, oa.Current, oa.Latest)
+		display := oa.Version()
+		if display == "" {
+			display = oa.Current
+		}
+		fmt.Printf("%s:%d: %s/%s %s → %s\n", oa.File, oa.Line, oa.Owner, oa.Repo, display, oa.Latest)
 	}
 	fmt.Printf("\n%d action(s) can be upgraded.\n", len(outdated))
 	os.Exit(1)

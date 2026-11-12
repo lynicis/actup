@@ -192,16 +192,20 @@ func (c *Client) Scan(ctx context.Context, actions []parser.ActionRef) ([]Findin
 	var findings []Finding
 	for key, info := range keys {
 		for _, site := range info.sites {
+			version := site.Version()
+			if version == "" {
+				continue // bare SHA: no version to match against OSV ranges
+			}
 			var vulns []Vulnerability
 			for _, v := range vulnDetails {
-				if !v.affects(key, site.Current) {
+				if !v.affects(key, version) {
 					continue
 				}
 				vulns = append(vulns, Vulnerability{
 					ID:       v.ID,
 					Summary:  v.Summary,
 					Severity: v.DatabaseSpecific.Severity,
-					Fixed:    v.firstFixed(),
+					Fixed:    v.fixedFor(key, version),
 					URL:      v.advisoryURL(),
 				})
 			}
@@ -406,21 +410,45 @@ func (c *Client) fetchVuln(ctx context.Context, id string) (*osvVuln, error) {
 	return &v, nil
 }
 
-// firstFixed returns the earliest fixed version across all affected entries.
-func (v *osvVuln) firstFixed() string {
-	var best string
+// fixedFor returns the end of the vulnerable interval containing ref for this
+// advisory, or "" when the ref is only listed in Versions (no fixed event).
+func (v *osvVuln) fixedFor(actionKey, ref string) string {
+	var fix string
 	for _, aff := range v.Affected {
+		if !strings.EqualFold(aff.Package.Ecosystem, ecosystem) ||
+			!strings.EqualFold(aff.Package.Name, actionKey) {
+			continue
+		}
+		if len(aff.Versions) > 0 {
+			for _, ver := range aff.Versions {
+				if versionsEqual(ver, ref) {
+					return ""
+				}
+			}
+			continue
+		}
 		for _, r := range aff.Ranges {
-			for _, e := range r.Events {
-				if e.Fixed != "" {
-					if best == "" || compareVersions(e.Fixed, best) < 0 {
-						best = e.Fixed
-					}
+			if r.Type != "ECOSYSTEM" {
+				continue
+			}
+			for _, iv := range buildIntervals(r.Events) {
+				if !inInterval(ref, iv) || iv.end == "" {
+					continue
+				}
+				if fix == "" || compareVersions(iv.end, fix) > 0 {
+					fix = iv.end
 				}
 			}
 		}
 	}
-	return best
+	return fix
+}
+
+// inInterval reports whether ref lies in the half-open interval [start, end).
+func inInterval(ref string, iv interval) bool {
+	norm := normalizeVersion(ref)
+	return compareVersions(norm, iv.start) >= 0 &&
+		(iv.end == "" || compareVersions(norm, iv.end) < 0)
 }
 
 // advisoryURL returns a human-friendly link for the advisory. It prefers a
