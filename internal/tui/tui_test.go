@@ -11,6 +11,7 @@ import (
 
 	"github.com/lynicis/actup/internal/breakingchanges"
 	"github.com/lynicis/actup/internal/parser"
+	"github.com/lynicis/actup/internal/upgrader"
 	"github.com/lynicis/actup/internal/vulnscanner"
 )
 
@@ -412,6 +413,27 @@ func TestAllAtLatestSHA(t *testing.T) {
 	acts[0].Tag = "v3"
 	if allAtLatest(acts, "v4") {
 		t.Error("a SHA pin at v3 must not be considered up to date")
+	}
+}
+
+func TestUniqueFileCounts(t *testing.T) {
+	acts := []parser.ActionRef{
+		{File: ".github/workflows/ci.yml"},
+		{File: ".github/workflows/ci.yml"},
+		{File: ".github/workflows/release.yml"},
+	}
+	if got := uniqueFiles(acts); len(got) != 2 {
+		t.Fatalf("uniqueFiles = %v, want 2 entries", got)
+	}
+
+	// Mixed versions: the action is still listed for ci.yml, but only the ref
+	// that is actually stale is upgraded, so release.yml must not be counted.
+	upgrades := []upgrader.Upgrade{
+		{Action: parser.ActionRef{File: ".github/workflows/ci.yml"}},
+		{Action: parser.ActionRef{File: ".github/workflows/ci.yml"}},
+	}
+	if got := uniqueUpgradedFiles(upgrades); got != 1 {
+		t.Errorf("uniqueUpgradedFiles = %d, want 1", got)
 	}
 }
 

@@ -281,7 +281,11 @@ func runNoTUI(ctx context.Context, actions []parser.ActionRef, githubToken strin
 		syncLockfile(paths)
 	}
 
-	fmt.Printf("\n%d actions upgraded, %d skipped (up to date), %d skipped (API error)", upgraded, skipped, apiErr)
+	noun := "actions"
+	if upgraded == 1 {
+		noun = "action"
+	}
+	fmt.Printf("\n%d %s upgraded, %d skipped (up to date), %d skipped (API error)", upgraded, noun, skipped, apiErr)
 	if breakingSkipped > 0 {
 		fmt.Printf(", %d skipped (breaking changes)", breakingSkipped)
 	}

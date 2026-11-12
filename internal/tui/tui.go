@@ -305,6 +305,32 @@ func allAtLatestMixed(acts []parser.ActionRef, latestSHA, latestTag string) bool
 	return true
 }
 
+// uniqueFiles returns the distinct files a group of refs appears in,
+// first-seen order.
+func uniqueFiles(acts []parser.ActionRef) []string {
+	seen := make(map[string]bool, len(acts))
+	var out []string
+	for _, act := range acts {
+		if act.File == "" || seen[act.File] {
+			continue
+		}
+		seen[act.File] = true
+		out = append(out, act.File)
+	}
+	return out
+}
+
+// uniqueUpgradedFiles counts the distinct files the upgrade list writes to.
+func uniqueUpgradedFiles(upgrades []upgrader.Upgrade) int {
+	files := map[string]bool{}
+	for _, u := range upgrades {
+		if u.Action.File != "" {
+			files[u.Action.File] = true
+		}
+	}
+	return len(files)
+}
+
 // versionsInUse returns distinct non-empty comparison versions in first-seen
 // order. Bare SHA refs have no version.
 func versionsInUse(refs []parser.ActionRef) []string {
@@ -389,12 +415,13 @@ func (m model) loadActions() tea.Msg {
 			}
 		}
 
+		files := uniqueFiles(acts)
 		item := ActionItem{
 			Owner:     owner,
 			Repo:      repo,
 			Current:   acts[0].Current,
 			Currents:  currents,
-			FileCount: len(acts),
+			FileCount: len(files),
 		}
 
 		if r, ok := results[key]; ok {
@@ -522,7 +549,6 @@ func (m model) applyUpgrades() tea.Msg {
 	upgradedCount := 0
 	upToDateCount := 0
 	apiErrCount := 0
-	upgradedFiles := 0
 
 	for _, item := range m.items {
 		if item.UpToDate {
@@ -543,7 +569,6 @@ func (m model) applyUpgrades() tea.Msg {
 			})
 		} else if item.Selected {
 			upgradedCount++
-			upgradedFiles += item.FileCount
 			progress = append(progress, progressItem{
 				Owner:  item.Owner,
 				Repo:   item.Repo,
@@ -559,7 +584,7 @@ func (m model) applyUpgrades() tea.Msg {
 		Upgraded:      upgradedCount,
 		UpToDate:      upToDateCount,
 		APIErrors:     apiErrCount,
-		UpgradedFiles: upgradedFiles,
+		UpgradedFiles: uniqueUpgradedFiles(upgrades),
 	}
 
 	return applyResult{progress: progress, summary: summary}
@@ -607,7 +632,15 @@ func (m model) viewChecklist() string {
 		fileCount[action.File] = true
 	}
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("  actup — %d actions found across %d files", len(m.items), len(fileCount))))
+	actionNoun := "actions"
+	if len(m.items) == 1 {
+		actionNoun = "action"
+	}
+	fileNoun := "files"
+	if len(fileCount) == 1 {
+		fileNoun = "file"
+	}
+	b.WriteString(headerStyle.Render(fmt.Sprintf("  actup — %d %s found across %d %s", len(m.items), actionNoun, len(fileCount), fileNoun)))
 	b.WriteString("\n\n")
 
 	maxNameLen := 0
@@ -783,10 +816,18 @@ func (m model) viewSummary() string {
 
 	b.WriteString("\n")
 
+	files := "files"
+	if m.summary.UpgradedFiles == 1 {
+		files = "file"
+	}
+	actions := "actions"
+	if m.summary.Upgraded == 1 {
+		actions = "action"
+	}
 	if m.dryRun {
-		b.WriteString(greenStyle.Render(fmt.Sprintf("  ✅ %d actions would be upgraded across %d files", m.summary.Upgraded, m.summary.UpgradedFiles)))
+		b.WriteString(greenStyle.Render(fmt.Sprintf("  ✅ %d %s would be upgraded across %d %s", m.summary.Upgraded, actions, m.summary.UpgradedFiles, files)))
 	} else {
-		b.WriteString(greenStyle.Render(fmt.Sprintf("  ✅ %d actions upgraded across %d files", m.summary.Upgraded, m.summary.UpgradedFiles)))
+		b.WriteString(greenStyle.Render(fmt.Sprintf("  ✅ %d %s upgraded across %d %s", m.summary.Upgraded, actions, m.summary.UpgradedFiles, files)))
 	}
 	b.WriteString("\n")
 
