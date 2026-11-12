@@ -95,3 +95,110 @@ func TestDiscoverWorkflowsEmpty(t *testing.T) {
 		t.Fatalf("DiscoverWorkflows should not fail for nonexistent path: %v", err)
 	}
 }
+
+func writeTestFile(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatalf("failed to create dir for %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte("name: test\non: push\n"), 0644); err != nil {
+		t.Fatalf("failed to write %s: %v", path, err)
+	}
+}
+
+func TestDiscoverWorkflows_DefaultsIncludeCompositeAndRootAction(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	writeTestFile(t, filepath.Join(tmpDir, ".github", "workflows", "ci.yml"))
+	writeTestFile(t, filepath.Join(tmpDir, ".github", "actions", "deploy", "action.yml"))
+	writeTestFile(t, filepath.Join(tmpDir, "action.yaml"))
+
+	files, err := DiscoverWorkflows(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("DiscoverWorkflows failed: %v", err)
+	}
+
+	if len(files) != 3 {
+		t.Fatalf("expected 3 files, got %d: %v", len(files), files)
+	}
+}
+
+func TestDiscoverWorkflows_DefaultsIgnoreNonActionYAMLInActionsDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	writeTestFile(t, filepath.Join(tmpDir, ".github", "actions", "foo", "config.yml"))
+	writeTestFile(t, filepath.Join(tmpDir, ".github", "actions", "foo", "action.yml"))
+
+	files, err := DiscoverWorkflows(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("DiscoverWorkflows failed: %v", err)
+	}
+
+	if len(files) != 1 {
+		t.Fatalf("expected only action.yml, got %d: %v", len(files), files)
+	}
+	if filepath.Base(files[0]) != "action.yml" {
+		t.Errorf("expected action.yml, got %s", files[0])
+	}
+}
+
+func TestDiscoverWorkflows_DefaultsMissingActionsDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	writeTestFile(t, filepath.Join(tmpDir, ".github", "workflows", "ci.yml"))
+
+	files, err := DiscoverWorkflows(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("DiscoverWorkflows should not fail without .github/actions: %v", err)
+	}
+
+	if len(files) != 1 {
+		t.Errorf("expected 1 workflow, got %d: %v", len(files), files)
+	}
+}
+
+func TestDiscoverWorkflows_ExplicitPathDoesNotAddDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	writeTestFile(t, filepath.Join(tmpDir, ".github", "workflows", "ci.yml"))
+	writeTestFile(t, filepath.Join(tmpDir, ".github", "actions", "deploy", "action.yml"))
+	writeTestFile(t, filepath.Join(tmpDir, "action.yaml"))
+
+	fixtureDir := filepath.Join(tmpDir, "fixture")
+	writeTestFile(t, filepath.Join(fixtureDir, "only.yml"))
+
+	files, err := DiscoverWorkflows(t.Context(), []string{fixtureDir})
+	if err != nil {
+		t.Fatalf("DiscoverWorkflows failed: %v", err)
+	}
+
+	if len(files) != 1 {
+		t.Fatalf("expected only fixture file, got %d: %v", len(files), files)
+	}
+	if files[0] != filepath.Join(fixtureDir, "only.yml") {
+		t.Errorf("unexpected file %s", files[0])
+	}
+}
+
+func TestDiscoverWorkflows_Dedup(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowPath := filepath.Join(tmpDir, "ci.yml")
+	writeTestFile(t, workflowPath)
+
+	files, err := DiscoverWorkflows(t.Context(), []string{workflowPath, tmpDir})
+	if err != nil {
+		t.Fatalf("DiscoverWorkflows failed: %v", err)
+	}
+
+	if len(files) != 1 {
+		t.Fatalf("expected 1 deduplicated file, got %d: %v", len(files), files)
+	}
+	if files[0] != workflowPath {
+		t.Errorf("expected %s, got %s", workflowPath, files[0])
+	}
+}
