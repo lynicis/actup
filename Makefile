@@ -5,6 +5,9 @@ BINARY_NAME=actup
 build:
 	go build -o $(BINARY_NAME) .
 
+install:
+	go install .
+
 test:
 	go test -v -race ./...
 
