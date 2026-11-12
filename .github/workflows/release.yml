@@ -9,6 +9,7 @@ permissions:
   contents: write
   packages: write
   attestations: write
+  artifact-metadata: write
   id-token: write
 
 jobs:
@@ -17,37 +18,65 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version: "1.27"
-          cache: true
+          cache: false
 
       - name: Run tests
         run: go test -race ./...
 
+      - name: Build linux/amd64 image
+        run: |
+          mkdir -p "$RUNNER_TEMP/ctx/linux/amd64"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "$RUNNER_TEMP/ctx/linux/amd64/actup" .
+          docker build --pull -f Dockerfile -t actup:release-scan "$RUNNER_TEMP/ctx"
+
+      - name: Set up Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.2
+
+      - name: Scan image before publishing
+        run: trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 actup:release-scan
+
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Install cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      - name: Download Syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           version: latest
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Attest release archives
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip

@@ -5,42 +5,49 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   update-tap:
     name: Update Homebrew Tap
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Get release tag and commit SHA
         id: get_tag_info
         run: |
           TAG="${GITHUB_REF_NAME}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           SHA=$(git rev-list -n 1 "${TAG}")
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout homebrew tap repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: lynicis/homebrew-tap
           path: homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Write Homebrew Formula
+        env:
+          TAG: ${{ steps.get_tag_info.outputs.tag }}
+          SHA: ${{ steps.get_tag_info.outputs.sha }}
         run: |
           mkdir -p homebrew-tap/Formula
-          cat > homebrew-tap/Formula/actup.rb << 'EOF'
+          cat > homebrew-tap/Formula/actup.rb <<EOF
           class Actup < Formula
             desc "Upgrade GitHub Actions versions interactively from your terminal"
             homepage "https://github.com/lynicis/actup"
             url "https://github.com/lynicis/actup.git",
-                tag:      "${{ steps.get_tag_info.outputs.tag }}",
-                revision: "${{ steps.get_tag_info.outputs.sha }}"
+                tag:      "${TAG}",
+                revision: "${SHA}"
             license "MIT"
             head "https://github.com/lynicis/actup.git", branch: "main"
 
@@ -67,10 +74,14 @@ jobs:
           ruby -c homebrew-tap/Formula/actup.rb
 
       - name: Commit and push formula
+        env:
+          TAG: ${{ steps.get_tag_info.outputs.tag }}
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
           cd homebrew-tap
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add Formula/actup.rb
-          git diff --staged --quiet || git commit -m "actup ${{ steps.get_tag_info.outputs.tag }}"
+          git diff --staged --quiet || git commit -m "actup ${TAG}"
+          git remote set-url origin "https://x-access-token:${TAP_TOKEN}@github.com/lynicis/homebrew-tap.git"
           git push

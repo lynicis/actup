@@ -73,6 +73,18 @@ checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
   algorithm: sha256
 
+sboms:
+  - artifacts: archive
+
+docker_signs:
+  # Default artifacts: '' signs the images produced by dockers_v2.
+  - cmd: cosign
+    output: true
+    args:
+      - sign
+      - --yes
+      - "${artifact}@${digest}"
+
 changelog:
   sort: asc
   use: github
