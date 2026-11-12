@@ -11,7 +11,13 @@
       "source": "coderabbitai/skills",
       "sourceType": "github",
       "skillPath": "skills/code-review/SKILL.md",
-      "computedHash": "34a7128bb15aa8a2ec63f8a48838cd9dfc7cfe9af022401b79c020cb93c7668b"
+      "computedHash": "122182b5464b034bcb233838d8f41961c348400306d125ed619a585f975a0cc3"
+    },
+    "modern-web-guidance": {
+      "source": "GoogleChrome/modern-web-guidance",
+      "sourceType": "github",
+      "skillPath": "skills/modern-web-guidance/SKILL.md",
+      "computedHash": "9e69ce00dc314b64f6664031b70295ea46c7de93ac682c624808df6e48e08b66"
     }
   }
 }
