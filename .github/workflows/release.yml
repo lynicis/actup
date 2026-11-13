@@ -80,3 +80,26 @@ jobs:
           subject-path: |
             dist/*.tar.gz
             dist/*.zip
+
+      # `gh extension install` only accepts repositories named gh-*, so the
+      # prebuilt gh-actup-<os>-<arch> binaries are mirrored to lynicis/gh-actup.
+      # The token needs write access there; a classic PAT with `repo` scope does.
+      - name: Mirror gh extension binaries
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p ext
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'gh-actup-*' --dir ext
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          prerelease=()
+          if [ "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = "true" ]; then
+            prerelease=(--prerelease)
+          fi
+          if gh release view "$TAG" --repo lynicis/gh-actup >/dev/null 2>&1; then
+            gh release upload "$TAG" ext/* --repo lynicis/gh-actup --clobber
+          else
+            gh release create "$TAG" --repo lynicis/gh-actup --title "actup $TAG" \
+              --notes-file notes.md "${prerelease[@]}" ext/*
+          fi

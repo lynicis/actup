@@ -73,6 +73,18 @@ actup --dry-run
 
 ## Installation
 
+### GitHub CLI extension
+
+```sh
+gh extension install lynicis/gh-actup
+gh actup --help
+```
+
+Binaries are mirrored to [lynicis/gh-actup](https://github.com/lynicis/gh-actup)
+because `gh` only installs extensions from repositories named `gh-*`. Upgrade with
+`gh extension upgrade actup`; 32-bit Linux ARM is not reachable this way — use the
+`.deb`/`.rpm` packages instead.
+
 ### Package Managers
 
 **Homebrew** (macOS & Linux):
