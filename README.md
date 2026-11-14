@@ -343,6 +343,105 @@ Once installed, ask your agent:
 
 The skill scans your `.github/workflows/*.yml` files, resolves the latest version of each action from GitHub, warns about known breaking changes, and produces a diff-style report with suggested upgrades. It does **not** edit files unless you explicitly ask.
 
+## MCP
+
+`actup mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, so AI coding agents (Claude Code, Codex, Cursor, Gemini CLI, OpenCode, …) can call actup as typed tools instead of parsing CLI text. It reads and writes: upgrades, pins, and config writes only happen when the agent calls the matching tool.
+
+The examples below cover the most widely used harnesses, ordered by adoption — Claude Code and GitHub Copilot lead developer surveys ([Stack Overflow 2026](https://survey.stackoverflow.co/2026/ai/data/ai-code-agent), [JetBrains 2026](https://blog.jetbrains.com/research/2026/08/ai-coding-agent-adoption-2026/)), followed by Codex, Cursor, and the open-source CLIs. Any other MCP-capable client works the same way.
+
+### Claude Code
+
+```sh
+claude mcp add actup -- actup mcp
+```
+
+### Codex
+
+```sh
+codex mcp add actup -- actup mcp
+```
+
+Or in `~/.codex/config.toml` (or a trusted project's `.codex/config.toml`):
+
+```toml
+[mcp_servers.actup]
+command = "actup"
+args = ["mcp"]
+```
+
+### Cursor, Gemini CLI, Antigravity, oh-my-pi
+
+These clients share the same `mcpServers` JSON shape:
+
+```json
+{
+  "mcpServers": {
+    "actup": {
+      "command": "actup",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+|Client|Config file|
+|---|---|
+|Cursor|`~/.cursor/mcp.json` (project: `.cursor/mcp.json`)|
+|Gemini CLI|`~/.gemini/settings.json` (project: `.gemini/settings.json`)|
+|Antigravity CLI|`~/.gemini/config/mcp_config.json` (workspace: `.agents/mcp_config.json`)|
+|oh-my-pi (`omp`)|`~/.omp/agent/mcp.json` (project: `.omp/mcp.json`), or `/mcp add` inside omp|
+
+Google replaced the consumer-tier Gemini CLI with Antigravity CLI in June 2026; both read the same server entry shape.
+
+### OpenCode
+
+`opencode.jsonc` (or `opencode mcp add actup -- actup mcp`):
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "actup": {
+        "type": "local",
+        "command": ["actup", "mcp"]
+      }
+    }
+  }
+}
+```
+
+### VS Code (GitHub Copilot)
+
+`.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "actup": {
+      "type": "stdio",
+      "command": "actup",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+- Run the server from the repository root; tools discover `.github/workflows/`, `.actup.yaml`, and `actions.lock` relative to the working directory, exactly like the CLI.
+- The GitHub token is resolved from `GITHUB_TOKEN` or `gh auth token` — it is never a tool parameter.
+- `upgrade_actions` skips actions with known breaking changes or vulnerable target versions unless called with `force: true`; use `dry_run: true` to preview a plan without writing.
+- Tools never shell out to `gh actions-lock`; when an `actions.lock` exists, results carry a `lockfile_note` telling you to refresh it.
+
+|Tool|What it does|
+|---|---|
+|`list_actions`|List every action with versions, usage sites, pins, and lock status|
+|`check_outdated`|Resolve latest versions and report outdated actions with breaking changes|
+|`audit_vulnerabilities`|Audit direct and lockfile-transitive versions against OSV.dev|
+|`upgrade_actions`|Upgrade workflow refs (specs or all, honoring pins) and record the result|
+|`pin_action`|Pin an action to a version constraint in `.actup.yaml`|
+|`unpin_action`|Remove an action's pin|
+|`init_config`|Create `.actup.yaml` recording current versions|
+
 ## Configuration
 
 ### GitHub Token Resolution

@@ -62,9 +62,10 @@ func NewClient(token string) *Client {
 	}
 }
 
-// newClientWithBaseURL builds a client pointed at a test server (which the
-// go-github option treats as an enterprise API root).
-func newClientWithBaseURL(token, baseURL string) (*Client, error) {
+// NewClientWithBaseURL builds a client pointed at a custom API root (used by
+// tests to point at an httptest server, which go-github treats as an
+// enterprise API root).
+func NewClientWithBaseURL(token, baseURL string) (*Client, error) {
 	opts := []github.ClientOptionsFunc{github.WithEnterpriseURLs(baseURL, baseURL)}
 	if token != "" {
 		opts = append(opts, github.WithAuthToken(token))

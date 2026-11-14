@@ -146,9 +146,9 @@ func TestResolveTagSHA(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c, err := newClientWithBaseURL("token", srv.URL)
+			c, err := NewClientWithBaseURL("token", srv.URL)
 			if err != nil {
-				t.Fatalf("newClientWithBaseURL: %v", err)
+				t.Fatalf("NewClientWithBaseURL: %v", err)
 			}
 
 			got, err := c.ResolveTagSHA(t.Context(), "actions", "checkout", tt.ref)
@@ -168,9 +168,9 @@ func TestResolveTagSHA_NotFound(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := newClientWithBaseURL("", srv.URL)
+	c, err := NewClientWithBaseURL("", srv.URL)
 	if err != nil {
-		t.Fatalf("newClientWithBaseURL: %v", err)
+		t.Fatalf("NewClientWithBaseURL: %v", err)
 	}
 
 	if _, err := c.ResolveTagSHA(t.Context(), "actions", "checkout", "v9"); err == nil {
@@ -186,9 +186,9 @@ func TestResolveTagSHA_RateLimit(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := newClientWithBaseURL("", srv.URL)
+	c, err := NewClientWithBaseURL("", srv.URL)
 	if err != nil {
-		t.Fatalf("newClientWithBaseURL: %v", err)
+		t.Fatalf("NewClientWithBaseURL: %v", err)
 	}
 
 	_, err = c.ResolveTagSHA(t.Context(), "actions", "checkout", "v4")
@@ -216,9 +216,9 @@ func TestLatestTagInfoCachesTags(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := newClientWithBaseURL("", srv.URL)
+	c, err := NewClientWithBaseURL("", srv.URL)
 	if err != nil {
-		t.Fatalf("newClientWithBaseURL: %v", err)
+		t.Fatalf("NewClientWithBaseURL: %v", err)
 	}
 
 	info, err := c.LatestTagInfo(t.Context(), "actions", "checkout", TagMode{})
@@ -250,9 +250,9 @@ func TestFetchAllSemverTagsRetainsSHA(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c, err := newClientWithBaseURL("", srv.URL)
+	c, err := NewClientWithBaseURL("", srv.URL)
 	if err != nil {
-		t.Fatalf("newClientWithBaseURL: %v", err)
+		t.Fatalf("NewClientWithBaseURL: %v", err)
 	}
 
 	tags, err := c.fetchAllSemverTags(t.Context(), "actions", "checkout")
