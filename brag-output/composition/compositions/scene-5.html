@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --panel: #111827;
+        --border: #334155;
+        --ink: #f8fafc;
+        --ink-secondary: #cbd5e1;
+        --cyan: #5fffff;
+        --pink: #ff79c6;
+        --font-display: "Inter", sans-serif;
+        --font-mono: "JetBrains Mono", monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: var(--font-display); color: var(--ink); }
+      #s5-root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 100px;
+        gap: 28px;
+        text-align: center;
+      }
+      .outro-logo-wrap {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        background-color: var(--panel);
+        border: 2px solid var(--border);
+        padding: 20px 44px;
+        border-radius: 28px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+      }
+      .outro-logo {
+        width: 132px;
+        height: 132px;
+        object-fit: contain;
+      }
+      .outro-wordmark {
+        font-family: var(--font-mono);
+        font-size: 88px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        color: var(--ink);
+      }
+      .outro-punchline {
+        font-size: 56px;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        color: var(--ink);
+        max-width: 1400px;
+      }
+      .outro-tagline {
+        font-size: 36px;
+        font-weight: 600;
+        color: var(--cyan);
+      }
+      .install-grid {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        margin-top: 6px;
+      }
+      .install-pill {
+        background-color: var(--panel);
+        border: 2px solid var(--cyan);
+        border-radius: 14px;
+        padding: 18px 30px;
+        font-family: var(--font-mono);
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .install-pill span { color: var(--pink); }
+      .repo-url {
+        margin-top: 6px;
+        font-family: var(--font-mono);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--ink-secondary);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="s5-root" data-composition-id="scene-5" data-start="0" data-duration="3.6" data-width="1920" data-height="1080">
+      <div id="s5-logo-box" class="outro-logo-wrap">
+        <img class="outro-logo" src="../assets/logo.png" alt="actup Gopher and Octocat logo" />
+        <span class="outro-wordmark">actup</span>
+      </div>
+
+      <h2 id="s5-punchline" class="outro-punchline">Every upgrade is one reviewable change.</h2>
+      <p id="s5-tagline" class="outro-tagline">A version manager for GitHub Actions.</p>
+
+      <div id="s5-install" class="install-grid">
+        <div class="install-pill"><span>$</span> brew install lynicis/tap/actup</div>
+        <div class="install-pill"><span>$</span> gh extension install lynicis/gh-actup</div>
+      </div>
+
+      <div id="s5-url" class="repo-url">github.com/lynicis/actup</div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      // beat-locked: 17.47s strong cue (0.07s into scene-5)
+      tl.fromTo("#s5-logo-box", { opacity: 0, scale: 0.90 }, { opacity: 1, scale: 1.0, duration: 0.34, ease: "back.out(1.6)" }, 0.07);
+      tl.fromTo("#s5-punchline", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.30, ease: "power3.out" }, 0.18);
+      tl.fromTo("#s5-tagline", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out" }, 0.28);
+      tl.fromTo("#s5-install", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.30, ease: "power3.out" }, 0.38);
+      tl.fromTo("#s5-url", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" }, 0.50);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["scene-5"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

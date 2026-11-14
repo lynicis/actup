@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --panel: #111827;
+        --panel-elevated: #161f30;
+        --panel-header: #1e293b;
+        --border: #334155;
+        --ink: #f8fafc;
+        --ink-secondary: #cbd5e1;
+        --cyan: #5fffff;
+        --pink: #ff79c6;
+        --amber: #ffaf00;
+        --red: #ff6b6b;
+        --font-display: "Inter", sans-serif;
+        --font-mono: "JetBrains Mono", monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: var(--font-display); color: var(--ink); }
+      #s2-root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 58px 100px;
+        gap: 26px;
+      }
+      .scene-kicker {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 1660px;
+      }
+      .scene-kicker-title {
+        font-size: 42px;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+      }
+      .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 22px;
+        border-radius: 999px;
+        background-color: #172554;
+        border: 1px solid #38bdf8;
+        font-family: var(--font-mono);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--cyan);
+      }
+      .term-window {
+        width: 1660px;
+        background-color: var(--panel);
+        border: 2px solid var(--border);
+        border-radius: 18px;
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+        overflow: hidden;
+      }
+      .term-bar {
+        height: 54px;
+        background-color: var(--panel-header);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding: 0 22px;
+        gap: 12px;
+      }
+      .dot { width: 14px; height: 14px; border-radius: 50%; }
+      .dot-r { background-color: #ff5f56; }
+      .dot-y { background-color: #ffbd2e; }
+      .dot-g { background-color: #27c93f; }
+      .term-title {
+        margin-left: 14px;
+        font-family: var(--font-mono);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--ink-secondary);
+      }
+      .tui-content {
+        padding: 30px 42px;
+        font-family: var(--font-mono);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background-color: var(--panel);
+      }
+      .tui-header {
+        font-size: 30px;
+        font-weight: 700;
+        color: var(--ink);
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tui-row {
+        display: grid;
+        grid-template-columns: 80px 500px 240px 1fr;
+        align-items: center;
+        padding: 15px 22px;
+        border-radius: 12px;
+        background-color: var(--panel-elevated);
+        border: 2px solid transparent;
+        font-size: 28px;
+      }
+      .tui-row-active {
+        border-color: var(--cyan);
+        background-color: #172554;
+      }
+      .tui-check { color: var(--pink); font-weight: 700; }
+      .tui-name { color: var(--ink); font-weight: 600; }
+      .tui-ver { color: var(--cyan); font-weight: 700; }
+      .tui-badge-warn { color: var(--amber); font-weight: 700; }
+      .tui-badge-vuln { color: var(--red); font-weight: 700; }
+      .tui-badge-files { color: var(--ink-secondary); }
+      .tui-footer {
+        margin-top: 6px;
+        padding-top: 14px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 28px;
+        color: var(--ink-secondary);
+      }
+      .key-cap {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 6px;
+        background-color: var(--panel-header);
+        border: 1px solid var(--border);
+        color: var(--cyan);
+        font-weight: 700;
+        margin-right: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="s2-root" data-composition-id="scene-2" data-start="0" data-duration="4.9" data-width="1920" data-height="1080">
+      <div class="scene-kicker">
+        <div class="scene-kicker-title">Interactive Bubble Tea TUI</div>
+        <div class="badge-pill">Breaking-Change &amp; OSV.dev Checks</div>
+      </div>
+
+      <div id="s2-tui" class="term-window">
+        <div class="term-bar">
+          <span class="dot dot-r"></span>
+          <span class="dot dot-y"></span>
+          <span class="dot dot-g"></span>
+          <span class="term-title" data-layout-ignore="true">actup — checklist</span>
+        </div>
+        <div class="tui-content">
+          <div class="tui-header">actup — 4 actions found across 2 files</div>
+
+          <div id="tui-row-1" class="tui-row">
+            <span class="tui-check">[✓]</span>
+            <span class="tui-name">actions/checkout</span>
+            <span class="tui-ver">v4 → v7</span>
+            <span class="tui-badge-files">(2 files)</span>
+          </div>
+
+          <div id="tui-row-2" class="tui-row">
+            <span class="tui-check">[✓]</span>
+            <span class="tui-name">actions/setup-go</span>
+            <span class="tui-ver">v4 → v7</span>
+            <span class="tui-badge-warn">⚠ breaking changes</span>
+          </div>
+
+          <div id="tui-row-3" class="tui-row tui-row-active">
+            <span class="tui-check">[✓]</span>
+            <span class="tui-name">actions/cache</span>
+            <span class="tui-ver">v3 → v6</span>
+            <span class="tui-badge-warn">⚠ breaking changes</span>
+          </div>
+
+          <div id="tui-row-4" class="tui-row">
+            <span class="tui-check">[✓]</span>
+            <span class="tui-name">actions/upload-artifact</span>
+            <span class="tui-ver">v3 → v7</span>
+            <span class="tui-badge-vuln">⚠ vulnerable (OSV.dev)</span>
+          </div>
+
+          <div class="tui-footer" data-layout-ignore="true">
+            <div>
+              <span class="key-cap">[space]</span>toggle
+              <span class="key-cap" style="margin-left:14px;">[i]</span>info
+              <span class="key-cap" style="margin-left:14px;">[enter]</span>apply
+            </div>
+            <div id="s2-key-hint" style="color: var(--cyan); font-weight: 700;">
+              Press [i] for details →
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s2-tui", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.32, ease: "power3.out" }, 0.02);
+      // beat-grid (relative to scene start 3.8s): 4.39s->0.59s, 4.91s->1.11s, 5.34s->1.54s, 6.00s->2.20s
+      tl.fromTo("#tui-row-1", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 0.59);
+      tl.fromTo("#tui-row-2", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 1.11);
+      tl.fromTo("#tui-row-3", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 1.54);
+      tl.fromTo("#tui-row-4", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 2.20);
+      tl.fromTo("#s2-key-hint", { opacity: 0.35 }, { opacity: 1, duration: 0.25, ease: "power2.out" }, 2.76);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["scene-2"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

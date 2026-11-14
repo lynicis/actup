@@ -13,17 +13,17 @@
 | Security / vulns | `make sec`, `make vuln` |
 | Format / tidy | `make fmt`, `make mod-tidy` |
 
-Tests write to `t.TempDir()`; no network, no fixtures on disk. `github` and `token` tests mock clients/runners — keep API calls out of unit tests.
+Tests write to `t.TempDir()`; no network or disk fixtures. Mock `github`/`token` runners to keep API calls out of unit tests.
 
 ## Packages
 
 | Path | Role |
 |------|------|
-| `cmd/` | Cobra root (scan + upgrade) plus `use`, `pin`/`unpin`, `ls`, `sync`(alias `install`), `init`, `outdated`, `audit`, `install-hooks`, `mcp` (stdio MCP server); shared logic in `cmd/common.go` |
+| `cmd/` | Cobra root (scan + upgrade) plus subcommands (`use`, `pin`/`unpin`, `ls`, `sync`, `init`, `outdated`, `audit`, `install-hooks`, `mcp`); shared in `cmd/common.go` |
 | `internal/scanner` | Finds `.yml`/`.yaml` under `.github/workflows/` and composite/root action files |
 | `internal/parser` | Extracts `uses:` refs; skips `./local`, `docker://`, matrix expressions; keeps SHA + `# <tag>` comment |
 | `internal/lockfile` | Parses `.github/workflows/actions.lock` (v0.0.3), extracts transitive ActionRefs (Line 0), computes lock status, runs `gh actions-lock` via injectable execCommand |
-| `internal/github` | `go-github/v89` client: tag lookup (major or semver mode), `ResolveTagSHA`, in-memory cache; `NewClientWithBaseURL` points it at an httptest server for `cmd` tests |
+| `internal/github` | `go-github/v89` client: tag lookup (major or semver mode), `ResolveTagSHA`, in-memory cache; `NewClientWithBaseURL` points it at httptest server |
 | `internal/token` | `--token` → `GITHUB_TOKEN` → `gh auth token` |
 | `internal/config` | `.actup.yaml` manifest (`major`, `sha`, `pins`, `actions`, `groups`); `EffectivePins()` resolves constraints |
 | `internal/tui` | Bubble Tea checklist with breaking-change / vulnerability detail views |
@@ -52,10 +52,8 @@ Tests write to `t.TempDir()`; no network, no fixtures on disk. `github` and `tok
 | Need | File |
 |------|------|
 | CLI usage, config, installation | `README.md` |
-| Release history | `CHANGELOG.md` |
-| Security policy | `SECURITY.md` |
+| Release history, security policy | `CHANGELOG.md`, `SECURITY.md` |
 | Manifest schema | `schema.json` |
 | Design notes | `docs/plans/` |
-| Release packaging (GoReleaser, nfpms, Docker) | `.goreleaser.yaml`, `Dockerfile` |
-| CI | `.github/workflows/ci.yml`, `.github/workflows/release.yml` |
+| Packaging & CI | `.goreleaser.yaml`, `Dockerfile`, `.github/workflows/` |
 | Pre-commit (runs `actup outdated`) | `.pre-commit-config.yaml` |

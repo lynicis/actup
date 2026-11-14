@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --panel: #111827;
+        --panel-elevated: #161f30;
+        --border: #334155;
+        --ink: #f8fafc;
+        --cyan: #5fffff;
+        --green: #5fd700;
+        --amber: #ffaf00;
+        --red: #ff6b6b;
+        --font-display: "Inter", sans-serif;
+        --font-mono: "JetBrains Mono", monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: var(--font-display); color: var(--ink); }
+      #s3-root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 58px 100px;
+        gap: 26px;
+      }
+      .scene-kicker {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 1660px;
+      }
+      .scene-kicker-title {
+        font-size: 42px;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+      }
+      .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 22px;
+        border-radius: 999px;
+        background-color: #172554;
+        border: 1px solid #38bdf8;
+        font-family: var(--font-mono);
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--cyan);
+      }
+      .s3-layout {
+        display: grid;
+        grid-template-columns: 1.12fr 0.88fr;
+        gap: 32px;
+        width: 1660px;
+      }
+      .term-window {
+        background-color: var(--panel);
+        border: 2px solid var(--border);
+        border-radius: 18px;
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+        overflow: hidden;
+      }
+      .detail-card {
+        padding: 32px 36px;
+        font-family: var(--font-mono);
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .detail-heading {
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .detail-jump {
+        display: inline-flex;
+        align-items: center;
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--cyan);
+        background-color: var(--panel-elevated);
+        padding: 10px 20px;
+        border-radius: 10px;
+        width: fit-content;
+      }
+      .warn-box {
+        padding: 18px 22px;
+        border-radius: 12px;
+        background-color: #1f1a14;
+        border-left: 5px solid var(--amber);
+        color: var(--amber);
+        font-size: 28px;
+        line-height: 1.38;
+        font-weight: 600;
+      }
+      .osv-box {
+        padding: 18px 22px;
+        border-radius: 12px;
+        background-color: #23151b;
+        border-left: 5px solid var(--red);
+        color: var(--red);
+        font-size: 28px;
+        line-height: 1.38;
+        font-weight: 600;
+      }
+      .apply-card {
+        padding: 32px 36px;
+        font-family: var(--font-mono);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .apply-step {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 28px;
+        color: var(--ink);
+        padding: 11px 16px;
+        border-radius: 10px;
+        background-color: var(--panel-elevated);
+      }
+      .tick-green { color: var(--green); font-weight: 800; }
+      .summary-banner {
+        padding: 20px 24px;
+        border-radius: 14px;
+        background-color: #0f291e;
+        border: 2px solid var(--green);
+        color: var(--green);
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.38;
+      }
+      .summary-sub {
+        font-size: 28px;
+        color: var(--ink);
+        margin-top: 6px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="s3-root" data-composition-id="scene-3" data-start="0" data-duration="4.4" data-width="1920" data-height="1080">
+      <div class="scene-kicker">
+        <div class="scene-kicker-title">Inspect Risk Before Writing</div>
+        <div class="badge-pill">Registry + OSV.dev Advisories</div>
+      </div>
+
+      <div class="s3-layout">
+        <div id="s3-detail-card" class="term-window detail-card">
+          <div class="detail-heading">actions/cache — Breaking Changes</div>
+          <div class="detail-jump">v3 → v6 · 2 warnings</div>
+          <div class="warn-box">
+            ⚠ cache v4 runs on Node 20 (runners ≥ v2.308.0).
+          </div>
+          <div class="warn-box">
+            ⚠ cache v4 requires cache service v2 backend.
+          </div>
+          <div class="osv-box">
+            ⚠ upload-artifact: OSV.dev advisory fixed in v7
+          </div>
+        </div>
+
+        <div id="s3-apply-card" class="term-window apply-card">
+          <div style="display:flex; flex-direction:column; gap:12px;" data-layout-ignore="true">
+            <div class="detail-heading">Press [enter] to apply</div>
+            <div class="apply-step"><span class="tick-green">✓</span><span>actions/checkout → v7</span></div>
+            <div class="apply-step"><span class="tick-green">✓</span><span>actions/setup-go → v7</span></div>
+            <div class="apply-step"><span class="tick-green">✓</span><span>actions/cache → v6</span></div>
+            <div class="apply-step"><span class="tick-green">✓</span><span>actions/upload-artifact → v7</span></div>
+          </div>
+
+          <div id="s3-summary-banner" class="summary-banner">
+            <div>✅ 4 actions upgraded across 2 files</div>
+            <div class="summary-sub">actions.lock synced atomically</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      // beat-locked: 8.74s strong cue (0.04s into scene-3)
+      tl.fromTo("#s3-detail-card", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.32, ease: "power3.out" }, 0.04);
+      tl.fromTo("#s3-apply-card", { opacity: 0, x: 24 }, { opacity: 1, x: 0, duration: 0.32, ease: "power3.out" }, 0.25);
+      // beat-locked: 10.93s strong cue (2.23s into scene-3)
+      tl.fromTo("#s3-summary-banner", { opacity: 0.25, scale: 0.95 }, { opacity: 1, scale: 1.0, duration: 0.32, ease: "back.out(1.8)" }, 2.23);
+      window.__timelines = window.__timelines || {};
+      window.__timelines["scene-3"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

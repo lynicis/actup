@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #0b0f17; }
+      #bg-comp {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        background: radial-gradient(circle at 50% 18%, #172554 0%, #0b0f17 65%);
+      }
+      #glow-orb {
+        position: absolute;
+        width: 1500px;
+        height: 820px;
+        left: 210px;
+        top: 130px;
+        background: radial-gradient(closest-side, rgba(56, 189, 248, 0.22) 0%, rgba(255, 121, 198, 0.08) 52%, rgba(11, 15, 23, 0) 100%);
+        opacity: 0.65;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bg-comp" data-composition-id="bg-stage" data-start="0" data-duration="21" data-width="1920" data-height="1080">
+      <div id="glow-orb" class="clip" data-start="0" data-duration="21" data-track-index="0"></div>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      const audioBeats = [
+        [0.56, 0.80], [1.09, 0.25], [1.64, 0.80], [2.19, 0.55], [2.73, 0.80],
+        [3.82, 0.79], [4.39, 0.52], [4.91, 0.78], [5.34, 0.45], [6.00, 0.82],
+        [7.09, 0.79], [8.19, 0.60], [8.74, 0.99], [9.29, 0.97], [10.37, 0.62],
+        [10.93, 0.97], [12.02, 0.75], [13.11, 0.98], [13.64, 0.64], [14.73, 0.78],
+        [15.84, 0.82], [17.47, 0.99], [18.56, 0.99], [19.66, 0.96], [20.75, 0.40]
+      ];
+      for (let i = 0; i < audioBeats.length; i++) {
+        const [t, energy] = audioBeats[i];
+        tl.to("#glow-orb", {
+          opacity: 0.45 + energy * 0.45,
+          scale: 0.96 + energy * 0.10,
+          duration: 0.26,
+          ease: "sine.inOut"
+        }, t);
+      }
+      window.__timelines = window.__timelines || {};
+      window.__timelines["bg-stage"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1 @@
+Introducing actup, a version manager for GitHub Actions modeled on nvm and fvm. Pin, sync, audit, and upgrade `uses:` refs across every workflow from one `.actup.yaml` manifest, with breaking-change warnings and OSV.dev checks before anything touches disk.
