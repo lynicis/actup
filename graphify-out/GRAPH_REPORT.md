@@ -1,26 +1,31 @@
 # Graph Report - actup  (2026-11-14)
 
 ## Corpus Check
-- 115 files · ~97,268 words
+- 80 files · ~97,270 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 7 file(s) not represented in the graph (top: (none) 6, .lock 1)
 
 ## Summary
-- 926 nodes · 2529 edges · 52 communities (43 shown, 9 thin omitted)
-- Extraction: 86% EXTRACTED · 14% INFERRED · 0% AMBIGUOUS · INFERRED: 343 edges (avg confidence: 0.85)
+- 1003 nodes · 2667 edges · 56 communities (50 shown, 6 thin omitted)
+- Extraction: 85% EXTRACTED · 15% INFERRED · 0% AMBIGUOUS · INFERRED: 407 edges (avg confidence: 0.87)
 - Token cost: 106,596 input · 4,724 output
 
+## Graph Freshness
+- Built from commit: `b0429d01`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
+
 ## Community Hubs (Navigation)
-- Vulnerability Audit & Auto-Fix
+- mcp_tools.go
 - Audit CLI & Findings Formatting
-- HTTP & GitHub API Client
+- vulnscanner_test.go
 - Terminal UI & Spinner Components
 - Vulnerability Version Matching
 - Release Workflow & Token Config
 - Git Pre-Commit Hook Installer
 - Breaking Changes Warning System
 - Workflow File Reference Upgrader
-- CLI Root & Filter Execution
+- testing.T
 - Homebrew Tap Automation
 - Actup Manifest Action Declarations
 - YAML Manifest Configuration Parser
@@ -28,13 +33,13 @@
 - Action Pinning & Version Sync
 - GitHub Tag & SHA Resolver
 - Workflow Step Action Inputs
-- MCP Server Integration Tests
+- ActionRef
 - Pre-Commit Configuration Schema
 - CI Workflow Execution Steps
 - Workflow Job Runners & Conditions
-- Commit SHA Pinning Tests
+- context.Context
 - GoReleaser Packaging Configuration
-- Version Flag & Build Info
+- Brag Plan: actup
 - Cross-Platform Build Targets
 - NFPM Linux Package Config
 - Homebrew & Scoop Distribution
@@ -50,41 +55,46 @@
 - Docker Multi-Arch Image Builder
 - GitHub Release Draft Config
 - MCP Server Editor Configuration
-- Model Context Protocol Server
+- eventsAffect
 - Static Analysis & Linter Workflow
 - Vulnerability Check Job
 - Cosign Docker Signing Config
 - Documentation & Branding Assets
 - Project Changelog History
 - Release & Launch Strategy
-- Breaking Changes Registry Spec
-- GitHub API Client Architecture
+- Product Marketing Context
+- Config
+- scanner_test.go
 - Go Module Package Declaration
 - Repository Security Policy
+- Hyperframes Composition Brief: actup
+- Design: GitHub Actions Lockfile (`actions.lock`) Integration & `gh actup` CLI Extension
+- AGENTS.md
+- isGHExtensionInvocation
 
 ## God Nodes (most connected - your core abstractions)
-1. `ActionRef` - 48 edges
+1. `ActionRef` - 54 edges
 2. `writeWorkflow()` - 39 edges
-3. `with` - 30 edges
-4. `doUse()` - 30 edges
+3. `doUse()` - 33 edges
+4. `doSync()` - 31 edges
 5. `LoadDefault()` - 30 edges
-6. `handleUpgradeActions()` - 28 edges
-7. `doSync()` - 28 edges
-8. `model` - 24 edges
-9. `runAuditFix()` - 23 edges
-10. `actions` - 20 edges
+6. `with` - 30 edges
+7. `handleUpgradeActions()` - 28 edges
+8. `runAuditFix()` - 27 edges
+9. `model` - 24 edges
+10. `ApplyAllUpgrades()` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `outdatedAction` --embeds--> `ActionRef`  [EXTRACTED]
-  cmd/root.go → internal/parser/parser.go
-- `auditFix` --references--> `ActionRef`  [EXTRACTED]
-  cmd/audit.go → internal/parser/parser.go
-- `runAuditFix()` --calls--> `LoadRegistry()`  [EXTRACTED]
-  cmd/audit.go → internal/breakingchanges/registry.go
-- `runAuditFix()` --calls--> `ApplyAllUpgrades()`  [EXTRACTED]
-  cmd/audit.go → internal/upgrader/upgrader.go
-- `runAuditFix()` --references--> `Finding`  [EXTRACTED]
-  cmd/audit.go → internal/vulnscanner/vulnscanner.go
+- `Packages` --references--> `NewClientWithBaseURL()`  [INFERRED]
+  CLAUDE.md → internal/github/client.go
+- `Non-obvious rules` --references--> `confirmBreaking()`  [INFERRED]
+  CLAUDE.md → cmd/common.go
+- `Non-obvious rules` --references--> `Save()`  [INFERRED]
+  CLAUDE.md → internal/config/config.go
+- `4.1 `internal/parser`: Skip `$/…` Local Action References` --references--> `parseActionRef()`  [INFERRED]
+  docs/plans/2026-11-12-actions-lock-and-gh-extension-design.md → internal/parser/parser.go
+- `4.3 Auto-Refresh `actions.lock` on Workflow Writes` --references--> `doUse()`  [INFERRED]
+  docs/plans/2026-11-12-actions-lock-and-gh-extension-design.md → cmd/use.go
 
 ## Import Cycles
 - None detected.
@@ -92,47 +102,47 @@
 ## Hyperedges (group relationships)
 - **actup v0.9.1 Launch Readiness** — docs_plans_20261114launchplan_md, docs_plans_brainstormingideas_md, docs_plans_deepdiveanalysis_md [EXTRACTED 1.00]
 
-## Communities (52 total, 9 thin omitted)
+## Communities (56 total, 6 thin omitted)
 
-### Community 0 - "Vulnerability Audit & Auto-Fix"
-Cohesion: 0.05
-Nodes (100): actionSpec, normalizedFixed(), resolveFixTarget(), runAudit(), runAuditFix(), auditUnknownSite, auditVulnFinding, auditVulnFix (+92 more)
+### Community 0 - "mcp_tools.go"
+Cohesion: 0.10
+Nodes (49): auditUnknownSite, auditVulnFinding, auditVulnFix, auditVulnsIn, auditVulnsOut, auditVulnVuln, checkOutdatedIn, checkOutdatedOut (+41 more)
 
 ### Community 1 - "Audit CLI & Findings Formatting"
-Cohesion: 0.07
-Nodes (34): auditFindingsError(), auditMajor(), auditJSONFinding, auditJSONVuln, pluralY(), fixTargetTooOldError, runInit(), initOptions (+26 more)
+Cohesion: 0.06
+Nodes (37): auditJSONFinding, auditJSONVuln, fixTargetTooOldError, runInit(), newMCPServer(), runMCPTransport(), TestMCPRunToleratesClientDisconnect(), nopCloseWriter (+29 more)
 
-### Community 2 - "HTTP & GitHub API Client"
-Cohesion: 0.07
-Nodes (42): boundedEvents(), buildIntervals(), compareVersions(), eventsAffect(), inInterval(), lastAffectedEnd(), lastKnownBoundEvent(), NewClient() (+34 more)
+### Community 2 - "vulnscanner_test.go"
+Cohesion: 0.14
+Nodes (23): multiIntervalVuln(), newMockOSV(), osvFromMap(), simpleVuln(), TestFixedFor_EarlierInterval(), TestFixedFor_MultiInterval(), TestFixedFor_NoFixedEvent(), TestFixedFor_VersionsOnly() (+15 more)
 
 ### Community 3 - "Terminal UI & Spinner Components"
 Cohesion: 0.07
-Nodes (28): Sync(), TestSync_UsesExecSeam(), allAtLatest(), stripANSI(), TestAllAtLatest(), TestAllAtLatestMixed(), TestAllAtLatestSHA(), TestAllAtLatestSHA_Predicate() (+20 more)
+Nodes (31): allAtLatest(), allAtLatestMixed(), allAtLatestSHA(), anyRefPinned(), stripANSI(), TestAllAtLatest(), TestAllAtLatestMixed(), TestAllAtLatestSHA() (+23 more)
 
 ### Community 4 - "Vulnerability Version Matching"
-Cohesion: 0.13
-Nodes (37): auditSiteVersion(), auditUpgrades(), auditVersionCompare(), auditVersionSegment(), maxAuditVersion(), minFixedFor(), outputAuditJSON(), planAuditFixes() (+29 more)
+Cohesion: 0.32
+Nodes (19): auditTestRepo(), auditTransitiveFixture(), captureAuditStdout(), checkoutFinding(), resetAuditFixState(), runAuditCommand(), stubAuditScan(), stubTransitiveScan() (+11 more)
 
 ### Community 5 - "Release Workflow & Token Config"
 Cohesion: 0.06
 Nodes (34): GH_TOKEN, GITHUB_TOKEN, HOMEBREW_TAP_GITHUB_TOKEN, TAG, jobs, release, name, on (+26 more)
 
 ### Community 6 - "Git Pre-Commit Hook Installer"
-Cohesion: 0.10
-Nodes (28): hookFilePath(), installHook(), runInstallHooks(), TestInstallHooks_CreatesHook(), TestInstallHooks_DryRun(), TestInstallHooks_ExistingHookForce(), TestInstallHooks_ExistingHookNoForce(), TestInstallHooks_Uninstall() (+20 more)
+Cohesion: 0.15
+Nodes (16): hookFilePath(), installHook(), runInstallHooks(), TestInstallHooks_CreatesHook(), TestInstallHooks_DryRun(), TestInstallHooks_ExistingHookForce(), TestInstallHooks_ExistingHookNoForce(), TestInstallHooks_Uninstall() (+8 more)
 
 ### Community 7 - "Breaking Changes Warning System"
 Cohesion: 0.12
-Nodes (29): Entry, breakingChangesFor(), confirmBreaking(), confirmBreakingAll(), dedupeInputs(), mcpBreakingChangesFor(), TestConfirmBreakingAll_UnionInputsFromMultipleSites(), TestConfirmBreakingAllMixedVersions() (+21 more)
+Nodes (28): Entry, breakingChangesFor(), confirmBreaking(), confirmBreakingAll(), dedupeInputs(), TestConfirmBreakingAll_UnionInputsFromMultipleSites(), TestConfirmBreakingAllMixedVersions(), checkUseBreaking() (+20 more)
 
 ### Community 8 - "Workflow File Reference Upgrader"
-Cohesion: 0.12
-Nodes (30): TestPrintUseDiffRendersSHAComment(), printUseDiff(), ApplyAllUpgrades(), Upgrade, replaceAllInFile(), replaceInFile(), showDryRunDiff(), captureStdout() (+22 more)
+Cohesion: 0.09
+Nodes (42): loadRefs(), readFile(), TestApplyUseToFileRefs_MixedForceSHA(), TestApplyUseToFileRefs_MixedPerSiteStyle(), TestApplyUseToFileRefs_SHASameTargetSkipped(), TestApplyUseToFileRefs_SHAStaysSHA(), TestApplyUseToFileRefs_TagConvertsToSHA(), TestMostCommonVersionSkipsBareSHA() (+34 more)
 
-### Community 9 - "CLI Root & Filter Execution"
-Cohesion: 0.11
-Nodes (26): init(), isGHExtensionInvocation(), resetFilterTestState(), TestFilterActionsByPatterns(), TestFilterSkippedActions(), TestGroupFlagUnknown(), TestGroupFlagWithoutManifest(), TestGroupPlusPositionalUnion() (+18 more)
+### Community 9 - "testing.T"
+Cohesion: 0.13
+Nodes (24): TestAuditJSONOutputShape(), TestMinFixedFor(), TestPlanAuditFixes_DedupesAcrossFiles(), TestPlanAuditFixes_DifferentCurrents(), TestPlanAuditFixes_MixedVersionsFixesVulnerableSite(), TestPlanAuditFixes_UnfixableSkipsAllSites(), TestSavePins_NoManifestNoop(), filterActionsByPatterns() (+16 more)
 
 ### Community 10 - "Homebrew Tap Automation"
 Cohesion: 0.08
@@ -147,28 +157,28 @@ Cohesion: 0.15
 Nodes (22): formatScalar(), Load(), Render(), Save(), TestEffectivePins_LegacyFallsBackToActions(), TestEffectivePins_ManagedPrefersPins(), TestLoad_InvalidYAML(), TestLoad_MissingFile() (+14 more)
 
 ### Community 13 - "Workflow Uses Parser"
-Cohesion: 0.17
-Nodes (23): DistinctVersions(), ExtractActions(), parseActionRef(), assertInputs(), inputWorkflow(), TestDistinctVersions(), TestExtractActions(), TestExtractActionsConcurrent() (+15 more)
+Cohesion: 0.20
+Nodes (20): DistinctVersions(), ExtractActions(), assertInputs(), inputWorkflow(), TestDistinctVersions(), TestExtractActions(), TestExtractActionsConcurrent(), TestExtractActionsMultilineSteps() (+12 more)
 
 ### Community 14 - "Action Pinning & Version Sync"
-Cohesion: 0.19
-Nodes (21): parseActionSpec(), runUnpin(), captureStdout(), TestDoSync_AppliesPins(), TestDoSync_ExactRefsNeedNoToken(), TestDoUse_AlreadyAtTarget(), TestDoUse_DryRunLeavesEverythingUntouched(), TestDoUse_NoSaveSkipsConfig() (+13 more)
+Cohesion: 0.13
+Nodes (37): actionSpec, parseActionSpec(), recordUpgrades(), savePins(), doInit(), initOptions, runUnpin(), TestDoInitSkipsBareSHA() (+29 more)
 
 ### Community 15 - "GitHub Tag & SHA Resolver"
-Cohesion: 0.14
+Cohesion: 0.13
 Nodes (21): TestMCPCheckOutdated(), NewClientWithBaseURL(), resolveLatestTag(), resolvePin(), tagMajor(), TestFetchAllSemverTagsRetainsSHA(), TestIsMajorTag(), TestLatestTagInfoCachesTags() (+13 more)
 
 ### Community 16 - "Workflow Step Action Inputs"
 Cohesion: 0.10
 Nodes (21): with, advanced-security, annotations, args, cache, category, comment-summary-in-pr, dockerfile (+13 more)
 
-### Community 17 - "MCP Server Integration Tests"
-Cohesion: 0.14
-Nodes (8): assertWorkflowContains(), assertWorkflowNotContains(), TestMCPAuditVulnerabilities(), TestMCPInitConfigUnparseable(), TestMCPListActions(), TestMCPUpgradeActions(), TestMCPUpgradeActionsApplyError(), nopCloseWriter
+### Community 17 - "ActionRef"
+Cohesion: 0.06
+Nodes (54): auditSiteVersion(), auditUpgrades(), auditVersionCompare(), auditVersionSegment(), maxAuditVersion(), minFixedFor(), planAuditFixes(), auditFix (+46 more)
 
 ### Community 18 - "Pre-Commit Configuration Schema"
 Cohesion: 0.12
-Nodes (15): default_install_hook_types, default_stages, always_run, description, entry, id, language, name (+7 more)
+Nodes (16): default_install_hook_types, default_stages, always_run, args, description, entry, id, language (+8 more)
 
 ### Community 19 - "CI Workflow Execution Steps"
 Cohesion: 0.24
@@ -178,17 +188,17 @@ Nodes (15): steps, steps, steps, steps, workflow-security, steps, steps, if (+7 
 Cohesion: 0.14
 Nodes (14): name, runs-on, if, name, runs-on, jobs, action-audit, dependency-review (+6 more)
 
-### Community 21 - "Commit SHA Pinning Tests"
-Cohesion: 0.36
-Nodes (12): loadRefs(), readFile(), TestApplyUseToFileRefs_MixedForceSHA(), TestApplyUseToFileRefs_MixedPerSiteStyle(), TestApplyUseToFileRefs_SHASameTargetSkipped(), TestApplyUseToFileRefs_SHAStaysSHA(), TestApplyUseToFileRefs_TagConvertsToSHA(), TestMostCommonVersionSkipsBareSHA() (+4 more)
+### Community 21 - "context.Context"
+Cohesion: 0.14
+Nodes (25): auditMajor(), normalizedFixed(), resolveFixTarget(), runAuditFix(), anyRefPinned(), confirmVulnerableTarget(), isCommitSHA(), isTerminal() (+17 more)
 
 ### Community 22 - "GoReleaser Packaging Configuration"
 Cohesion: 0.17
 Nodes (11): before, hooks, checksum, algorithm, name_template, metadata, mod_timestamp, project_name (+3 more)
 
-### Community 23 - "Version Flag & Build Info"
-Cohesion: 0.27
-Nodes (7): FormatVersion(), init(), SetVersionInfo(), TestRootVersionFlag(), TestVersionOutput(), TestVersionShortOutput(), TestVersionSubcommandRegistered()
+### Community 23 - "Brag Plan: actup"
+Cohesion: 0.10
+Nodes (19): Audio direction, Brag Plan: actup, Duration: 21 seconds, Format: landscape — 1920x1080, Hook (first 2-3 seconds), Key moments (the middle), Outro / punchline, Scene 1 — Hook: The Workflow Drift Problem — 3.8s (0.0s – 3.8s) (+11 more)
 
 ### Community 24 - "Cross-Platform Build Targets"
 Cohesion: 0.18
@@ -250,9 +260,9 @@ Nodes (6): name, owner, release, draft, github, prerelease
 Cohesion: 0.33
 Nodes (5): go, gopls, actup, gopls, producthunt
 
-### Community 39 - "Model Context Protocol Server"
-Cohesion: 0.40
-Nodes (3): newMCPServer(), runMCPTransport(), TestMCPRunToleratesClientDisconnect()
+### Community 39 - "eventsAffect"
+Cohesion: 0.22
+Nodes (13): boundedEvents(), buildIntervals(), compareVersions(), eventsAffect(), inInterval(), lastAffectedEnd(), lastKnownBoundEvent(), normalizeVersion() (+5 more)
 
 ### Community 40 - "Static Analysis & Linter Workflow"
 Cohesion: 0.40
@@ -266,25 +276,53 @@ Nodes (4): vulnerability-check, name, runs-on, steps
 Cohesion: 0.50
 Nodes (4): docker_signs, args, cmd, output
 
+### Community 47 - "Product Marketing Context"
+Cohesion: 0.12
+Nodes (15): Brand Voice, Changelog, Competitive Landscape, Customer Language, Differentiation, Goals, Learnings, Objections (+7 more)
+
+### Community 48 - "Config"
+Cohesion: 0.24
+Nodes (13): Non-obvious rules, auditFindingsError(), outputAuditJSON(), runAudit(), applyActionFilters(), printVulnWarnings(), runOutdated(), filterSkippedActions() (+5 more)
+
+### Community 49 - "scanner_test.go"
+Cohesion: 0.31
+Nodes (12): DiscoverWorkflows(), isWorkflowFile(), TestDiscoverWorkflows(), TestDiscoverWorkflows_Dedup(), TestDiscoverWorkflows_DefaultsIgnoreNonActionYAMLInActionsDir(), TestDiscoverWorkflows_DefaultsIncludeCompositeAndRootAction(), TestDiscoverWorkflows_DefaultsMissingActionsDir(), TestDiscoverWorkflows_ExplicitPathDoesNotAddDefaults() (+4 more)
+
+### Community 52 - "Hyperframes Composition Brief: actup"
+Cohesion: 0.20
+Nodes (9): Audio, Creative Direction, Hyperframes Composition Brief: actup, Hyperframes Instructions, Objective, Output, Source Material, Storyboard (+1 more)
+
+### Community 53 - "Design: GitHub Actions Lockfile (`actions.lock`) Integration & `gh actup` CLI Extension"
+Cohesion: 0.25
+Nodes (7): 1. Intent & Why, 2. Goals, Non-Goals, and Anti-Goals, 3. Approaches Considered, Anti-Goals, Design: GitHub Actions Lockfile (`actions.lock`) Integration & `gh actup` CLI Extension, Goals, Non-Goals
+
+### Community 54 - "AGENTS.md"
+Cohesion: 0.40
+Nodes (4): AGENTS.md, Commands, External references, Packages
+
+### Community 55 - "isGHExtensionInvocation"
+Cohesion: 0.50
+Nodes (4): init(), isGHExtensionInvocation(), TestIsGHExtensionInvocation(), Task 6: `gh` CLI Extension Support (`cmd/root.go`, `.goreleaser.yaml`, `README.md`, `AGENTS.md`)
+
 ## Knowledge Gaps
-- **12 isolated node(s):** `go`, `gopls`, `github.com/lynicis/actup`, `Changelog`, `Security Policy` (+7 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 254 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **10 isolated node(s):** `go`, `gopls`, `github.com/lynicis/actup`, `actup — Brainstorming: Improvements & New Features`, `github-actions-updater Skill` (+5 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 305 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **6 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ActionRef` connect `Vulnerability Audit & Auto-Fix` to `Audit CLI & Findings Formatting`, `Terminal UI & Spinner Components`, `Vulnerability Version Matching`, `Breaking Changes Warning System`, `Workflow File Reference Upgrader`, `Workflow Uses Parser`, `Commit SHA Pinning Tests`?**
+- **Why does `ActionRef` connect `ActionRef` to `mcp_tools.go`, `Audit CLI & Findings Formatting`, `Terminal UI & Spinner Components`, `Breaking Changes Warning System`, `Workflow File Reference Upgrader`, `testing.T`, `Workflow Uses Parser`, `Config`, `context.Context`?**
+  _High betweenness centrality (0.033) - this node is a cross-community bridge._
+- **Are the 6 inferred relationships involving `ActionRef` (e.g. with `4.2 New Package: `internal/lockfile`` and `File Map`) actually correct?**
+  _`ActionRef` has 6 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `go`, `gopls`, `github.com/lynicis/actup` to the rest of the system?**
+  _10 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `mcp_tools.go` be split into smaller, more focused modules?**
+  _Cohesion score 0.09502262443438914 - nodes in this community are weakly interconnected._
+- **Why does `4. Technical Specification` connect `ActionRef` to `Config`, `Design: GitHub Actions Lockfile (`actions.lock`) Integration & `gh actup` CLI Extension`, `context.Context`?**
   _High betweenness centrality (0.019) - this node is a cross-community bridge._
 - **Are the 21 inferred relationships involving `writeWorkflow()` (e.g. with `TestMCPAuditVulnerabilities()` and `TestMCPCheckOutdated()`) actually correct?**
   _`writeWorkflow()` has 21 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `go`, `gopls`, `github.com/lynicis/actup` to the rest of the system?**
-  _12 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Vulnerability Audit & Auto-Fix` be split into smaller, more focused modules?**
-  _Cohesion score 0.0547673531655225 - nodes in this community are weakly interconnected._
-- **Why does `model` connect `Terminal UI & Spinner Components` to `Vulnerability Audit & Auto-Fix`, `Audit CLI & Findings Formatting`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
 - **Should `Audit CLI & Findings Formatting` be split into smaller, more focused modules?**
-  _Cohesion score 0.0686641697877653 - nodes in this community are weakly interconnected._
-- **Why does `doSync()` connect `Vulnerability Audit & Auto-Fix` to `Audit CLI & Findings Formatting`, `Breaking Changes Warning System`, `Workflow File Reference Upgrader`, `Action Pinning & Version Sync`, `Commit SHA Pinning Tests`?**
-  _High betweenness centrality (0.005) - this node is a cross-community bridge._
+  _Cohesion score 0.0567139282735613 - nodes in this community are weakly interconnected._

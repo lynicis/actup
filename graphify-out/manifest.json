@@ -270,10 +270,10 @@
     "semantic_hash": "ab928176c33d6bf640f48ec6a84edbfb"
   },
   ".pre-commit-config.yaml": {
-    "mtime": 1794453328.2401319,
-    "seen": 1794671472.427986,
-    "ast_hash": "272324f38dd4e7bde97318f6683673c7",
-    "semantic_hash": "272324f38dd4e7bde97318f6683673c7"
+    "mtime": 1794671664.9821863,
+    "seen": 1794671730.477229,
+    "ast_hash": "45fcaa2a9d7a46bd2dbb6ba27d79ffb1",
+    "semantic_hash": ""
   },
   ".pre-commit-hooks.yaml": {
     "mtime": 1794474852.6120512,
@@ -666,9 +666,27 @@
     "semantic_hash": "f20e4f9974e1d7d8b29a1ed4131a0942"
   },
   "docs/plans/ponytail-simplification.md": {
-    "mtime": 1789215756.2015874,
-    "seen": 1794671472.4280162,
-    "ast_hash": "59c52ff882937caf3648d15b8a553980",
-    "semantic_hash": "59c52ff882937caf3648d15b8a553980"
+    "mtime": 1794671670.44889,
+    "seen": 1794671730.477268,
+    "ast_hash": "5e29572c1d2de8214b32f0de0732df64",
+    "semantic_hash": ""
+  },
+  ".agents/product-marketing.md": {
+    "mtime": 1794626609.111249,
+    "seen": 1794671730.4772558,
+    "ast_hash": "e0020ce786e879789a1efe18ad3db318",
+    "semantic_hash": ""
+  },
+  "docs/plans/2026-11-12-actions-lock-and-gh-extension-design.md": {
+    "mtime": 1794455718.9741507,
+    "seen": 1794671730.477265,
+    "ast_hash": "a4e1301c4d783189b84377450873459d",
+    "semantic_hash": ""
+  },
+  "docs/plans/2026-11-12-actions-lock-and-gh-extension-plan.md": {
+    "mtime": 1794455974.6428206,
+    "seen": 1794671730.4772658,
+    "ast_hash": "603edaacb33c11e10f67fa8e8ff27600",
+    "semantic_hash": ""
   }
 }
