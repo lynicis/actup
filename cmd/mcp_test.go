@@ -583,3 +583,109 @@ func TestMCPRunToleratesClientDisconnect(t *testing.T) {
 type nopCloseWriter struct{ io.Writer }
 
 func (nopCloseWriter) Close() error { return nil }
+
+func TestMCPUpgradeActionsPinSemantics(t *testing.T) {
+	t.Run("all mode honors skip pins", func(t *testing.T) {
+		dir := t.TempDir()
+		path := writeWorkflow(t, dir, "ci.yml", checkoutV3Workflow)
+		if err := os.WriteFile(filepath.Join(dir, ".actup.yaml"), []byte("pins:\n  actions/checkout: skip\n"), 0600); err != nil {
+			t.Fatalf("write manifest: %v", err)
+		}
+		t.Chdir(dir)
+		t.Setenv("GITHUB_TOKEN", "test")
+
+		_, out, err := handleUpgradeActions(t.Context(), &mcp.CallToolRequest{}, upgradeActionsIn{Force: true})
+		if err != nil {
+			t.Fatalf("handleUpgradeActions: %v", err)
+		}
+		if len(out.Results) != 0 {
+			t.Errorf("results = %+v, want none for a skip-pinned action", out.Results)
+		}
+		if out.ConfigUpdated {
+			t.Error("config_updated = true, want false")
+		}
+		assertWorkflowContains(t, path, "actions/checkout@v3")
+	})
+
+	t.Run("spec mode moves the managed pin with the target", func(t *testing.T) {
+		dir := t.TempDir()
+		path := writeWorkflow(t, dir, "ci.yml", checkoutV3Workflow)
+		if err := os.WriteFile(filepath.Join(dir, ".actup.yaml"), []byte("pins:\n  actions/checkout: v4\n"), 0600); err != nil {
+			t.Fatalf("write manifest: %v", err)
+		}
+		t.Chdir(dir)
+
+		_, out, err := handleUpgradeActions(t.Context(), &mcp.CallToolRequest{}, upgradeActionsIn{
+			Actions: []string{"actions/checkout@v5"},
+			Force:   true,
+		})
+		if err != nil {
+			t.Fatalf("handleUpgradeActions: %v", err)
+		}
+		if r := out.Results[0]; r.Status != "upgraded" {
+			t.Fatalf("result = %+v, want upgraded", r)
+		}
+		if !out.ConfigUpdated {
+			t.Error("config_updated = false, want true")
+		}
+		cfg, err := config.LoadDefault()
+		if err != nil {
+			t.Fatalf("reload config: %v", err)
+		}
+		if cfg.Pins["actions/checkout"] != "v5" {
+			t.Errorf("Pins[checkout] = %q, want v5 (pin must follow an explicit target)", cfg.Pins["actions/checkout"])
+		}
+		if cfg.Actions["actions/checkout"] != "v5" {
+			t.Errorf("Actions[checkout] = %q, want v5", cfg.Actions["actions/checkout"])
+		}
+		assertWorkflowContains(t, path, "actions/checkout@v5")
+	})
+}
+
+func TestMCPUpgradeActionsApplyError(t *testing.T) {
+	dir := t.TempDir()
+	path := writeWorkflow(t, dir, "ci.yml", checkoutV3Workflow)
+	t.Chdir(dir)
+
+	workflowsDir := filepath.Dir(path)
+	if err := os.Chmod(workflowsDir, 0555); err != nil {
+		t.Fatalf("chmod read-only: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(workflowsDir, 0755) })
+
+	_, out, err := handleUpgradeActions(t.Context(), &mcp.CallToolRequest{}, upgradeActionsIn{
+		Actions: []string{"actions/checkout@v5"},
+		Force:   true,
+	})
+	if err != nil {
+		t.Fatalf("handleUpgradeActions: %v", err)
+	}
+	r := out.Results[0]
+	if r.Status != "error" || r.Error == "" {
+		t.Fatalf("result = %+v, want an error result", r)
+	}
+	if r.RefsUpdated != 0 {
+		t.Errorf("refs_updated = %d, want 0 when the apply failed", r.RefsUpdated)
+	}
+}
+
+func TestMCPInitConfigUnparseable(t *testing.T) {
+	dir := t.TempDir()
+	writeWorkflow(t, dir, "ci.yml", checkoutV3Workflow)
+	manifest := filepath.Join(dir, ".actup.yaml")
+	if err := os.WriteFile(manifest, []byte("pins: [broken\n"), 0600); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	t.Chdir(dir)
+
+	if _, _, err := handleInitConfig(t.Context(), &mcp.CallToolRequest{}, initConfigIn{}); err == nil {
+		t.Fatal("expected an error for an unparseable manifest")
+	}
+	data, err := os.ReadFile(manifest)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	if string(data) != "pins: [broken\n" {
+		t.Errorf("manifest was modified:\n%s", data)
+	}
+}

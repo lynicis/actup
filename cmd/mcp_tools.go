@@ -484,9 +484,12 @@ func handleUpgradeActions(ctx context.Context, req *mcp.CallToolRequest, in upgr
 	}
 	var targets []upgradeTarget
 	var client *github.Client
+	specKeys := map[string]bool{}
 	if len(specs) == 0 {
-		// All mode: pin-honoring latest for every discovered key, mirroring
-		// the root upgrade flow's resolution.
+		// All mode: honor "skip" pins (mirrors runOutdated, runAudit, and
+		// the bare `actup` upgrade flow) and resolve pin-honoring latest.
+		actions = filterSkippedActions(actions, cfg)
+		grouped = parser.GroupActions(actions)
 		client = mcpNewGHClient(resolveToken(""))
 		keys := slices.Sorted(maps.Keys(grouped))
 		results := github.ResolveAll(ctx, client, keys, in.Semver, in.Major, cfg.EffectivePins())
@@ -506,18 +509,17 @@ func handleUpgradeActions(ctx context.Context, req *mcp.CallToolRequest, in upgr
 				continue
 			}
 			seen[spec.Key] = true
+			specKeys[spec.Key] = true
 			t := upgradeTarget{key: spec.Key}
 			t.ref, t.err = resolveSpecRef(ctx, client, spec, in.Semver)
 			targets = append(targets, t)
 		}
 	}
-
 	files := map[string]bool{}
 	upgraded := map[string]string{}
 	planned := 0
 	applied := 0
 	out := upgradeActionsOut{Results: make([]upgradeActionResult, 0, len(targets))}
-
 	for _, t := range targets {
 		res := upgradeActionResult{Key: t.key, Target: t.ref}
 		if t.err != nil {
@@ -593,12 +595,11 @@ func handleUpgradeActions(ctx context.Context, req *mcp.CallToolRequest, in upgr
 			out.Results = append(out.Results, res)
 			continue
 		}
-		res.RefsUpdated = len(upgrades)
-
 		if in.DryRun {
 			// Planned only; never call ApplyAllUpgrades here — its dry-run
 			// branch prints to stdout and would corrupt the protocol.
 			res.Status = "upgraded"
+			res.RefsUpdated = len(upgrades)
 			planned++
 			out.Results = append(out.Results, res)
 			continue
@@ -611,6 +612,7 @@ func handleUpgradeActions(ctx context.Context, req *mcp.CallToolRequest, in upgr
 			continue
 		}
 		res.Status = "upgraded"
+		res.RefsUpdated = len(upgrades)
 		applied++
 		for _, u := range upgrades {
 			files[u.Action.File] = true
@@ -620,13 +622,21 @@ func handleUpgradeActions(ctx context.Context, req *mcp.CallToolRequest, in upgr
 	}
 
 	if !in.DryRun && len(upgraded) > 0 {
+		if cfg != nil && cfg.IsManaged() {
+			// Mirror `actup use`: an explicit target moves the pin with it,
+			// keeping the manifest consistent for later CLI runs.
+			for key, ref := range upgraded {
+				if specKeys[key] {
+					cfg.Pins[key] = ref
+				}
+			}
+		}
 		if err := recordUpgrades(cfg, upgraded); err != nil {
 			fmt.Fprintf(os.Stderr, "⚠ Failed to update .actup.yaml: %v\n", err)
 		} else {
 			out.ConfigUpdated = cfg != nil && cfg.IsManaged()
 		}
 	}
-	// MCP never shells out to `gh actions-lock`; surface a note instead.
 	if lf := mcpLoadLockfile(in.Paths); lf != nil {
 		out.LockfileNote = "actions.lock exists; run gh actions-lock or actup sync to refresh it"
 	}
@@ -757,13 +767,16 @@ func handleInitConfig(ctx context.Context, req *mcp.CallToolRequest, in initConf
 
 	existing, err := config.LoadDefault()
 	if err != nil {
+		if !in.Force && !in.DryRun {
+			return nil, initConfigOut{}, fmt.Errorf(".actup.yaml exists but could not be parsed; fix or remove it, or use force: true: %w", err)
+		}
 		fmt.Fprintf(os.Stderr, "⚠ Failed to load existing config: %v\n", err)
 	}
 	if existing != nil && !in.Force && !in.DryRun {
 		return nil, initConfigOut{}, fmt.Errorf(".actup.yaml already exists; use force: true to merge new pins into it")
 	}
-
 	cfg := existing
+
 	if cfg == nil {
 		cfg = &config.Config{Pins: map[string]string{}}
 	} else if in.Force && cfg.Pins == nil {
