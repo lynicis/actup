@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.0] - 2026-11-14
 
 ### Added
 - **`actup mcp` — MCP server for AI coding agents.** Runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio (official `modelcontextprotocol/go-sdk`), exposing the version manager as typed tools: `list_actions`, `check_outdated`, `audit_vulnerabilities`, `upgrade_actions`, `pin_action`, `unpin_action`, and `init_config`. Each call returns a one-line summary plus structured content, so agents get versions, usage sites, lock status, breaking changes, and OSV findings as data instead of parsing CLI text.
@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   - `upgrade_actions` honors manifest pins and per-action targets, supports `dry_run`/`force`, and skips actions with known breaking changes or vulnerable targets unless one is set — stricter than the non-interactive CLI. Mutating tools are serialized; the server never shells out to `gh actions-lock` and returns a `lockfile_note` instead.
   - An unreadable manifest or lockfile degrades to a stderr warning so tool calls still return structured results, and a client disconnect is treated as a clean shutdown rather than an error.
   - README documents setup for Claude Code, Codex, Cursor, Gemini CLI, Antigravity, oh-my-pi (`omp`), OpenCode, and VS Code (GitHub Copilot).
+- **GitHub CLI extension companion.** Prebuilt `gh-actup` binaries are mirrored to [`lynicis/gh-actup`](https://github.com/lynicis/gh-actup) on release for single-command `gh extension install lynicis/gh-actup` support.
 
 ## [0.9.1] - 2026-11-13
 
@@ -250,6 +251,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
+[0.10.0]: https://github.com/lynicis/actup/releases/tag/v0.10.0
+[0.9.1]: https://github.com/lynicis/actup/releases/tag/v0.9.1
+[0.9.0]: https://github.com/lynicis/actup/releases/tag/v0.9.0
+[0.8.2]: https://github.com/lynicis/actup/releases/tag/v0.8.2
+[0.8.1]: https://github.com/lynicis/actup/releases/tag/v0.8.1
+[0.8.0]: https://github.com/lynicis/actup/releases/tag/v0.8.0
 [0.7.7]: https://github.com/lynicis/actup/releases/tag/v0.7.7
 [0.7.6]: https://github.com/lynicis/actup/releases/tag/v0.7.6
 [0.7.5]: https://github.com/lynicis/actup/releases/tag/v0.7.5
