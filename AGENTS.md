@@ -57,3 +57,4 @@ Tests write to `t.TempDir()`; no network or disk fixtures. Mock `github`/`token`
 | Design notes | `docs/plans/` |
 | Packaging & CI | `.goreleaser.yaml`, `Dockerfile`, `.github/workflows/` |
 | Pre-commit (runs `actup outdated`) | `.pre-commit-config.yaml` |
+| Automated agent install & workflow | `llms.txt`, `llm.txt` |

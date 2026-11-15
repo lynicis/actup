@@ -13,6 +13,7 @@
 <p align="center">
   <a href="https://github.com/lynicis/actup/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/lynicis/actup/ci.yml?style=for-the-badge&label=CI" alt="CI"></a>
   <a href="https://github.com/lynicis/actup/releases"><img src="https://img.shields.io/github/v/release/lynicis/actup?style=for-the-badge" alt="Release"></a>
+  <a href="https://github.com/lynicis/gh-actup"><img src="https://img.shields.io/badge/gh%20extension-lynicis%2Fgh--actup-2ea44f?style=for-the-badge&logo=github" alt="GitHub CLI extension"></a>
   <a href="https://go.dev/"><img src="https://img.shields.io/github/go-mod/go-version/lynicis/actup?style=for-the-badge" alt="Go Version"></a>
   <a href="https://github.com/lynicis/actup/blob/main/LICENSE"><img src="https://img.shields.io/github/license/lynicis/actup.svg?style=for-the-badge" alt="License"></a>
 </p>
@@ -21,6 +22,8 @@
   <a href="https://github.com/lynicis/actup/issues/new?labels=bug&template=bug_report.md">Report Bug</a>
   &middot;
   <a href="https://github.com/lynicis/actup/issues/new?labels=enhancement&template=feature_request.md">Request Feature</a>
+  &middot;
+  <a href="https://github.com/lynicis/gh-actup">GitHub CLI Extension</a>
 </p>
 
 ---
@@ -29,7 +32,7 @@
 between minor releases; breaking changes are documented in the
 [changelog](CHANGELOG.md).
 
-`actup` is a version manager for GitHub Actions, similar to `nvm` for Node or `fvm` for Flutter. Pin workflow versions in a `.actup.yaml` manifest, check for breaking changes and advisories, and upgrade across all workflows interactively or in CI.
+`actup` is a version manager for GitHub Actions, similar to `nvm` for Node or `fvm` for Flutter. Pin workflow versions in a `.actup.yaml` manifest, check for breaking changes and advisories, and upgrade across all workflows interactively or in CI. It is also available as a GitHub CLI extension via [`lynicis/gh-actup`](https://github.com/lynicis/gh-actup).
 
 ## Demo
 
@@ -52,7 +55,7 @@ Action versions live inside every workflow file, making updates manual and uneve
 
 ## Quick Start
 
-Install `actup` first ([Installation](#installation)), then run these from your repository root:
+Install `actup` first ([Installation](#installation) or `gh extension install lynicis/gh-actup`), then run these from your repository root:
 
 ```sh
 # Bootstrap a manifest pinning the versions your workflows already use
@@ -73,14 +76,24 @@ actup --dry-run
 
 ## Installation
 
+### 🤖 Install with AI
+
+Copy and paste this prompt into your AI coding assistant (Claude Code, Cursor, GitHub Copilot, Antigravity, etc.) to automate installation and setup:
+
+```text
+Install actup on my system. First inspect my environment and ask me whether I want to install it as a GitHub CLI extension (`gh actup`) or as a standalone CLI (`actup`) (via Homebrew, Scoop, Go, or native packages). Once installed and verified, ask if I also want to configure the `actup mcp` server for my current AI assistant/editor, and if so, set up the appropriate MCP configuration. Refer to https://raw.githubusercontent.com/lynicis/actup/main/llms.txt for full instructions.
+```
+
 ### GitHub CLI extension
+
+Install the [`gh-actup`](https://github.com/lynicis/gh-actup) extension for GitHub CLI:
 
 ```sh
 gh extension install lynicis/gh-actup
 gh actup --help
 ```
 
-Binaries are mirrored to [lynicis/gh-actup](https://github.com/lynicis/gh-actup)
+Binaries are mirrored to the companion repository [lynicis/gh-actup](https://github.com/lynicis/gh-actup)
 because `gh` only installs extensions from repositories named `gh-*`. Upgrade with
 `gh extension upgrade actup` (32-bit Linux ARM is not supported by gh extensions; use the
 `.deb` or `.rpm` packages instead).
@@ -149,6 +162,10 @@ make install   # optional, installs to $GOPATH/bin
 ### Pre-built Binaries
 
 Download binaries for Linux, macOS, or Windows from the [Releases](https://github.com/lynicis/actup/releases) page.
+
+### AI & Agent Setup
+
+For LLMs and AI coding assistants automating the installation and configuration of `actup`, see [`llms.txt`](llms.txt) (or [`llm.txt`](llm.txt)).
 
 ## Before and after
 
@@ -564,6 +581,12 @@ See [open issues](https://github.com/lynicis/actup/issues) for planned work and 
    make test && make lint
    ```
 4. Submit a pull request.
+
+## Related Repositories
+
+- [lynicis/gh-actup](https://github.com/lynicis/gh-actup): GitHub CLI (`gh`) extension wrapper mirroring prebuilt binaries.
+- [lynicis/homebrew-tap](https://github.com/lynicis/homebrew-tap): Homebrew tap formula repository (`brew install lynicis/tap/actup`).
+- [lynicis/scoop-bucket](https://github.com/lynicis/scoop-bucket): Windows Scoop bucket manifest repository.
 
 ## License
 

@@ -1,0 +1,266 @@
+# actup & gh-actup: LLM Installation & Setup Guide
+
+> `actup` is a version manager for GitHub Actions (similar to `nvm` for Node or `fvm` for Flutter). It allows developers to set, pin, sync, and upgrade `uses:` action refs across workflow files from a single manifest, with breaking-change warnings and OSV.dev vulnerability checks.
+>
+> This file (`llm.txt` / `llms.txt`) provides operational instructions for AI agents and LLMs to automate the installation of `actup` and optional configuration of the `actup mcp` server.
+
+---
+
+## Instructions for AI Agents & LLMs
+
+When a user asks to install, set up, or configure `actup`, do **not** run arbitrary install commands blindly. Follow this step-by-step interview and installation protocol.
+
+### Step 1: Inspect the Environment First
+
+Before asking questions, silently inspect the host system if you have tool access:
+1. Check if `actup` or `gh actup` is already installed:
+   ```sh
+   which actup
+   gh extension list 2>/dev/null | grep actup
+   ```
+2. Detect OS and architecture:
+   - OS: macOS, Linux, Windows
+   - Arch: `amd64` (x86_64), `arm64` (aarch64), or 32-bit ARM
+3. Check available tools:
+   - Is GitHub CLI (`gh`) installed and authenticated? (`gh auth status`)
+   - Are package managers available? (`brew`, `scoop`, `go`, `docker`, `apt-get` / `dpkg`, `rpm`)
+
+If `actup` or `gh actup` is already installed, report the current version (`actup --version` or `gh actup --version`) and ask if they wish to upgrade instead (`gh extension upgrade actup` or package manager update).
+
+---
+
+### Step 2: Interview the User (Determine Installation Intention)
+
+Present a concise choice to the user based on their environment:
+
+> "How would you like to install `actup`?
+> 1. **GitHub CLI Extension (`gh actup`)** [Recommended if you already use `gh`]: Runs seamlessly as `gh actup ...` with automatic GitHub authentication.
+> 2. **Standalone CLI (`actup`)**: Runs independently as `actup ...` installed via Homebrew, Scoop, Go, native packages, or Docker."
+
+If the user selects **Standalone CLI**, prompt or confirm their preferred package manager:
+- macOS / Linux: Homebrew (recommended), `go install`, native binary, or Docker
+- Windows: Scoop (recommended), `go install`, native binary, or Docker
+- Debian / Ubuntu: `.deb` package or Homebrew
+- RHEL / Fedora / CentOS: `.rpm` package or Homebrew
+
+---
+
+### Step 3: Execute Installation Pathway
+
+Once the user indicates their preference, execute or provide the exact commands:
+
+#### Pathway A: GitHub CLI Extension (`gh actup`)
+
+> [!NOTE]
+> Requires the GitHub CLI (`gh`). Binaries are mirrored in [`lynicis/gh-actup`](https://github.com/lynicis/gh-actup) because `gh` requires extension repositories to start with the `gh-` prefix.
+
+1. **Install command:**
+   ```sh
+   gh extension install lynicis/gh-actup
+   ```
+2. **Verify installation:**
+   ```sh
+   gh actup --help
+   ```
+3. **Upgrade command (for future reference):**
+   ```sh
+   gh extension upgrade actup
+   # or force reinstall:
+   gh extension install lynicis/gh-actup --force
+   ```
+4. **Platform limitation note:**
+   32-bit Linux ARM (`armv6` / `armv7`) cannot be resolved by `gh extension install` due to `gh` naming conventions. For 32-bit ARM, direct the user to Pathway B (`.deb` / `.rpm` or binary release).
+
+---
+
+#### Pathway B: Standalone CLI (`actup`)
+
+Run the appropriate command matching the user's OS and package manager preference:
+
+##### 1. Homebrew (macOS & Linux)
+```sh
+brew tap lynicis/tap
+brew install actup
+```
+
+##### 2. Scoop (Windows)
+```powershell
+scoop bucket add actup https://github.com/lynicis/scoop-bucket.git
+scoop install actup
+```
+
+##### 3. Go Install (Cross-platform, requires Go 1.22+)
+```sh
+go install github.com/lynicis/actup@latest
+```
+
+##### 4. Debian / Ubuntu (`.deb`)
+Download the `.deb` for the target architecture from [lynicis/actup releases](https://github.com/lynicis/actup/releases/latest), then:
+```sh
+sudo dpkg -i actup_*_linux_amd64.deb
+# Or arm64:
+# sudo dpkg -i actup_*_linux_arm64.deb
+```
+
+##### 5. Fedora / RHEL / CentOS (`.rpm`)
+Download the `.rpm` for the target architecture from [lynicis/actup releases](https://github.com/lynicis/actup/releases/latest), then:
+```sh
+sudo rpm -i actup_*_linux_amd64.rpm
+# Or arm64:
+# sudo rpm -i actup_*_linux_arm64.rpm
+```
+
+##### 6. Docker
+```sh
+# Run container scan on current workspace
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD:/workdir" -w /workdir \
+  -e GITHUB_TOKEN \
+  ghcr.io/lynicis/actup:latest
+```
+
+##### 7. Prebuilt Standalone Binaries (GitHub Releases)
+Prebuilt binaries for `darwin`, `linux`, and `windows` (architectures: `amd64`, `arm64`, `386`, `armv6`, `armv7`, `ppc64le`, `riscv64`, `s390x`) can be downloaded directly from:
+`https://github.com/lynicis/actup/releases/latest`
+
+Extract the binary and place it in the system `PATH` (e.g. `/usr/local/bin` or `~/.local/bin`).
+
+##### 8. Build from Source
+```sh
+git clone https://github.com/lynicis/actup.git
+cd actup
+make build
+```
+
+---
+
+### Step 4: Verification & Quick Start
+
+After completing installation, verify that the binary is functional:
+- If installed as extension: `gh actup --version` or `gh actup --help`
+- If installed as standalone: `actup --version` or `actup --help`
+
+Introduce the user to common commands:
+- **Inspect workflow actions & updates:**
+  ```sh
+  actup ls            # or: gh actup ls
+  actup ls --outdated # list only outdated actions
+  ```
+- **Interactive upgrade TUI:**
+  ```sh
+  actup               # or: gh actup
+  ```
+- **Vulnerability audit via OSV.dev:**
+  ```sh
+  actup audit         # or: gh actup audit
+  ```
+- **Sync pinned versions to `.actup.yaml` manifest:**
+  ```sh
+  actup sync          # or: gh actup sync
+  ```
+
+---
+
+### Step 5: (Optional) Configure MCP Server (`actup mcp`)
+
+After verifying the CLI installation, ask the user:
+> "Would you also like to configure the `actup` MCP (Model Context Protocol) server for your AI coding assistant / IDE?"
+
+If yes, detect or ask which AI client they use and configure `actup mcp`:
+
+#### 1. Claude Code
+```sh
+claude mcp add actup -- actup mcp
+```
+
+#### 2. VS Code (GitHub Copilot)
+Add to `.vscode/mcp.json`:
+```json
+{
+  "servers": {
+    "actup": {
+      "type": "stdio",
+      "command": "actup",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+#### 3. Cursor
+Add to `~/.cursor/mcp.json` (user-level) or `.cursor/mcp.json` (workspace):
+```json
+{
+  "mcpServers": {
+    "actup": {
+      "command": "actup",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+#### 4. Antigravity CLI / Gemini CLI
+Add to `~/.gemini/config/mcp_config.json` (Antigravity CLI) or `~/.gemini/settings.json` (Gemini CLI), or workspace `.agents/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "actup": {
+      "command": "actup",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+#### 5. Codex
+```sh
+codex mcp add actup -- actup mcp
+```
+Or in `~/.codex/config.toml`:
+```toml
+[mcp_servers.actup]
+command = "actup"
+args = ["mcp"]
+```
+
+#### 6. OpenCode
+```sh
+opencode mcp add actup -- actup mcp
+```
+Or in `opencode.jsonc`:
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "actup": {
+        "type": "local",
+        "command": ["actup", "mcp"]
+      }
+    }
+  }
+}
+```
+
+#### 7. oh-my-pi (`omp`)
+Run `/mcp add` inside `omp`, or add to `~/.omp/agent/mcp.json` (or `.omp/mcp.json`):
+```json
+{
+  "mcpServers": {
+    "actup": {
+      "command": "actup",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
+## Agent Safety & Execution Guardrails
+
+1. **Always interview first:** Never choose between GitHub CLI extension and Standalone CLI without user confirmation or clear user intent.
+2. **Check for root/sudo:** Never execute `sudo dpkg` or `sudo rpm` commands silently; ask the user or show the commands clearly.
+3. **Environment awareness:** If the user does not have `gh` installed, suggest Homebrew or native package managers rather than forcing `gh` installation unless requested.
+4. **Authentication:** Remind the user that setting `GITHUB_TOKEN` increases API rate limits when auditing or inspecting actions across large repositories.
