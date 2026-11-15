@@ -2,5 +2,10 @@
 dist/
 actup
 graphify-out/cache/
-brag-output/composition/.hyperframes/cache/
+# Brag marketing video outputs and audio/artifact assets
+brag-output/*.mp4
+brag-output/*.jpg
+brag-output/composition/assets/music/
+brag-output/composition/assets/sfx/
+brag-output/composition/.hyperframes/
 .worktrees/
