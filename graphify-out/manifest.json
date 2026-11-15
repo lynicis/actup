@@ -174,16 +174,16 @@
     "semantic_hash": "89d29d696edc391955baee9ecf76a528"
   },
   "internal/tui/tui.go": {
-    "mtime": 1794770993.8718674,
-    "seen": 1794770994.426017,
-    "ast_hash": "25839366e4f2a5dc4a57cb35b8c35631",
+    "mtime": 1794773276.120966,
+    "seen": 1794773307.212894,
+    "ast_hash": "7292081fac2a52d129f883d39a38f9af",
     "semantic_hash": ""
   },
   "internal/tui/tui_test.go": {
-    "mtime": 1794770479.522641,
-    "seen": 1794770847.153756,
-    "ast_hash": "1ed644501d3b163944ba21bc19f52f9a",
-    "semantic_hash": "1ed644501d3b163944ba21bc19f52f9a"
+    "mtime": 1794773276.121027,
+    "seen": 1794773307.212895,
+    "ast_hash": "ac44f939615782efbd17b52b1a203ba1",
+    "semantic_hash": ""
   },
   "internal/upgrader/upgrader.go": {
     "mtime": 1794453345.054236,
@@ -282,15 +282,15 @@
     "semantic_hash": "5884097a401d2b42e4bd229976f30c95"
   },
   "AGENTS.md": {
-    "mtime": 1794669514.373233,
-    "seen": 1794671472.428011,
-    "ast_hash": "7b26440ae98496d61896c9d134aedcac",
-    "semantic_hash": "7b26440ae98496d61896c9d134aedcac"
+    "mtime": 1794773306.0117347,
+    "seen": 1794773307.212901,
+    "ast_hash": "e510c17757eddf2567b8531db3b838d1",
+    "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1794751467.859262,
-    "seen": 1794751468.4514098,
-    "ast_hash": "19467f7032b60bb0df6bc42636aa88f2",
+    "mtime": 1794773292.884984,
+    "seen": 1794773307.212901,
+    "ast_hash": "8cd51ef6dfe081a60ddd5b0d8b729c78",
     "semantic_hash": ""
   },
   "CODE_OF_CONDUCT.md": {
@@ -300,9 +300,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794770502.3197713,
-    "seen": 1794770847.1537652,
-    "ast_hash": "07e49f82904728c431eae241a62faca7",
+    "mtime": 1794773306.0117958,
+    "seen": 1794773307.212903,
+    "ast_hash": "e29ca6064d267c7aa20eee7e72399687",
     "semantic_hash": ""
   },
   "SECURITY.md": {
@@ -636,15 +636,27 @@
     "semantic_hash": "8d6da9256afd2742f311a8a7ef45d5c4"
   },
   "CLAUDE.md": {
-    "mtime": 1794669514.373233,
-    "seen": 1794671472.428013,
-    "ast_hash": "7b26440ae98496d61896c9d134aedcac",
-    "semantic_hash": "7b26440ae98496d61896c9d134aedcac"
+    "mtime": 1794773306.0117347,
+    "seen": 1794773307.2129018,
+    "ast_hash": "e510c17757eddf2567b8531db3b838d1",
+    "semantic_hash": ""
   },
   ".agents/product-marketing.md": {
     "mtime": 1794626609.111249,
     "seen": 1794671730.4772558,
     "ast_hash": "e0020ce786e879789a1efe18ad3db318",
+    "semantic_hash": ""
+  },
+  "llm.txt": {
+    "mtime": 1794772964.2970688,
+    "seen": 1794773307.212909,
+    "ast_hash": "c5b9dd6be6f623918b1415169a12f6ca",
+    "semantic_hash": ""
+  },
+  "llms.txt": {
+    "mtime": 1794772964.2970688,
+    "seen": 1794773307.212909,
+    "ast_hash": "c5b9dd6be6f623918b1415169a12f6ca",
     "semantic_hash": ""
   }
 }

@@ -1,14 +1,19 @@
 {
   "0": "mcp_tools.go",
-  "1": "parser.go",
-  "2": "testing.T",
+  "1": "ls.go",
+  "2": "parser_test.go",
   "4": "audit.go",
-  "6": "go_pkg_path_filepath",
+  "6": "go_pkg_testing",
+  "9": "main.go",
+  "12": "scanner_test.go",
+  "13": "root.go",
   "14": "testing.T",
   "15": "mcp_test.go",
   "17": "lockfile.go",
+  "21": "go_pkg_os",
   "23": "Brag Plan: actup",
   "39": "eventsAffect",
+  "42": "go_pkg_strings",
   "47": "Product Marketing Context",
   "52": "Hyperframes Composition Brief: actup"
 }
