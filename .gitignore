@@ -1,4 +1,6 @@
 .DS_Store
 dist/
 actup
+graphify-out/cache/
+brag-output/composition/.hyperframes/cache/
 .worktrees/

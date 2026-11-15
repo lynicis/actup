@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+# Generated caches store content hashes (SHA-256 hex), which the generic-api-key
+# rule flags as high-entropy strings. They are never credentials.
+[[allowlists]]
+description = "Generated graphify and hyperframes caches"
+paths = [
+  '''graphify-out/cache/''',
+  '''brag-output/composition/\.hyperframes/cache/''',
+]
