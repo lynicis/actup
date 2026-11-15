@@ -1,7 +1,7 @@
 # Graph Report - actup  (2026-11-15)
 
 ## Corpus Check
-- 73 files · ~75,777 words
+- 73 files · ~75,953 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 8 file(s) not represented in the graph (top: (none) 6, .toml 1, .lock 1)
 
@@ -64,8 +64,8 @@
 ## God Nodes (most connected - your core abstractions)
 1. `ActionRef` - 48 edges
 2. `writeWorkflow()` - 39 edges
-3. `LoadDefault()` - 30 edges
-4. `doUse()` - 30 edges
+3. `doUse()` - 30 edges
+4. `LoadDefault()` - 30 edges
 5. `with` - 30 edges
 6. `handleUpgradeActions()` - 28 edges
 7. `doSync()` - 28 edges
@@ -268,7 +268,7 @@ _Questions this graph is uniquely positioned to answer:_
   _Cohesion score 0.06218487394957983 - nodes in this community are weakly interconnected._
 - **Why does `model` connect `Terminal UI & Spinner Components` to `mcp_tools.go`, `lockfile.go`?**
   _High betweenness centrality (0.014) - this node is a cross-community bridge._
+- **Are the 18 inferred relationships involving `doUse()` (e.g. with `TestUseRejectsSHATarget()` and `anyRefPinned()`) actually correct?**
+  _`doUse()` has 18 INFERRED edges - model-reasoned connections that need verification._
 - **Should `parser.go` be split into smaller, more focused modules?**
   _Cohesion score 0.052659716653301256 - nodes in this community are weakly interconnected._
-- **Why does `doSync()` connect `testing.T` to `mcp_tools.go`, `parser.go`, `Breaking Changes Warning System`, `Workflow File Reference Upgrader`, `mcp_test.go`?**
-  _High betweenness centrality (0.005) - this node is a cross-community bridge._

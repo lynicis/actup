@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   ".pre-commit-config.yaml": {
-    "mtime": 1794671664.9821863,
-    "seen": 1794671730.477229,
-    "ast_hash": "45fcaa2a9d7a46bd2dbb6ba27d79ffb1",
+    "mtime": 1794747347.3462157,
+    "seen": 1794747362.714614,
+    "ast_hash": "fee7727fd883e20bc6021e69345e3c04",
     "semantic_hash": ""
   },
   ".pre-commit-hooks.yaml": {
@@ -288,10 +288,10 @@
     "semantic_hash": "7b26440ae98496d61896c9d134aedcac"
   },
   "CHANGELOG.md": {
-    "mtime": 1794671172.7210147,
-    "seen": 1794671472.4280121,
-    "ast_hash": "ed48e95769f34848393523f764dc050d",
-    "semantic_hash": "ed48e95769f34848393523f764dc050d"
+    "mtime": 1794751467.859262,
+    "seen": 1794751468.4514098,
+    "ast_hash": "19467f7032b60bb0df6bc42636aa88f2",
+    "semantic_hash": ""
   },
   "CODE_OF_CONDUCT.md": {
     "mtime": 1781797774.4795823,
@@ -645,12 +645,6 @@
     "mtime": 1794626609.111249,
     "seen": 1794671730.4772558,
     "ast_hash": "e0020ce786e879789a1efe18ad3db318",
-    "semantic_hash": ""
-  },
-  "omp-session-2026-11-14T15-56-58-165Z_01a1dac6-b5b5-741b-8bb0-ba7cd0a49df8.html": {
-    "mtime": 1794683588.9644248,
-    "seen": 1794747087.1512861,
-    "ast_hash": "d878241b2e88204e6145b3b7ad8d9bc2",
     "semantic_hash": ""
   }
 }

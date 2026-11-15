@@ -6,8 +6,8 @@
 
 <p align="center">
   <strong>A version manager for GitHub Actions.</strong> Set, pin, sync, and upgrade
-  <code>uses:</code> refs from one manifest — with breaking-change warnings and
-  OSV.dev vulnerability checks, interactively or in CI.
+  <code>uses:</code> refs from one manifest, with breaking-change warnings and
+  OSV.dev vulnerability checks interactively or in CI.
 </p>
 
 <p align="center">
@@ -25,11 +25,11 @@
 
 ---
 
-**Status:** actively maintained, pre-1.0. Flags and the manifest schema may change
-between minor releases; breaking changes are called out in the
+**Status:** actively maintained, pre-1.0. Flags and manifest schemas may change
+between minor releases; breaking changes are documented in the
 [changelog](CHANGELOG.md).
 
-`actup` is a **version manager for GitHub Actions** — like `nvm` is for Node or `fvm` for Flutter. Set and pin the versions your workflows use, keep a `.actup.yaml` manifest as the source of truth, and upgrade to the latest versions when you're ready — interactively via a terminal UI, or non-interactively in CI.
+`actup` is a version manager for GitHub Actions, similar to `nvm` for Node or `fvm` for Flutter. Pin workflow versions in a `.actup.yaml` manifest, check for breaking changes and advisories, and upgrade across all workflows interactively or in CI.
 
 ## Demo
 
@@ -39,16 +39,16 @@ The TUI lists each action with its current → latest version, flags `⚠ breaki
 
 ## Why actup?
 
-Action versions live inside every workflow file, so upgrades are manual and uneven: nobody agrees on when to bump, and a major jump can silently change behavior. Dependabot and Renovate automate that by opening PRs on a schedule. `actup` gives you the same upgrade machinery as a command you run yourself — locally or in CI — so nothing is rewritten until you ask, and every upgrade is one reviewable change.
+Action versions live inside every workflow file, making updates manual and uneven: teams rarely agree on when to bump, and major version jumps can alter workflow behavior. Dependabot and Renovate automate updates by opening scheduled pull requests. `actup` provides upgrade commands you run directly, locally or in CI: nothing changes until invoked, and each run produces a single reviewable diff.
 
 | | `actup` | [Dependabot](https://docs.github.com/en/code-security/dependabot) | [Renovate](https://docs.renovatebot.com/) | [`gh actions-lock`](https://github.com/github/actions-lockfile) |
 |---|---|---|---|---|
-| What it does | Upgrades, pins, and syncs `uses:` refs from a manifest | Opens PRs when an ecosystem has a newer version | Opens PRs from configurable rules | Writes `actions.lock` for reproducible, transitive pinning |
-| When it runs | You run it — locally or in CI | On GitHub's schedule | On a schedule or webhook | You run it |
+| What it does | Upgrades, pins, and syncs `uses:` refs from a manifest | Opens PRs when an action has a newer version | Opens PRs from configurable rules | Writes `actions.lock` for reproducible, transitive pinning |
+| When it runs | On demand (locally or in CI) | Scheduled by GitHub | Scheduled or via webhook | On demand |
 | Where versions live | `.actup.yaml` (source of truth) | `dependabot.yml` (update policy) | `renovate.json` (rules) | `actions.lock` (resolved state) |
-| Breaking-change warnings | Embedded registry + OSV.dev advisories, checked before writing | Release notes in the PR | Release notes in the PR | — |
+| Breaking-change warnings | Embedded registry + OSV.dev advisories, checked before writing | Release notes in PR | Release notes in PR | None |
 
-`gh actions-lock` and `actup` are complements, not alternatives: the lockfile records resolved versions, including transitive dependencies, and never upgrades anything. `actup` upgrades the direct refs, then re-runs `gh actions-lock` so the lockfile stays fresh; `actup audit` also checks the lockfile's transitive refs, and `actup ls` marks each action `[locked]` or `[lock stale]`. If you want a bot that opens PRs on every upstream release, use Dependabot or Renovate — `actup` is the imperative counterpart, built for reviewable upgrades and CI gates.
+`gh actions-lock` and `actup` work together. `gh actions-lock` records resolved versions, including transitive dependencies, without modifying action references. `actup` upgrades direct workflow refs, then re-runs `gh actions-lock` to keep the lockfile current. `actup audit` checks direct and transitive lockfile dependencies against OSV.dev, while `actup ls` marks actions `[locked]` or `[lock stale]`. For scheduled automated PRs, use Dependabot or Renovate. Use `actup` when you want manual or CI-gated upgrades.
 
 ## Quick Start
 
@@ -64,7 +64,7 @@ actup use actions/checkout@v5
 # Make workflows follow the manifest after editing it
 actup sync
 
-# Upgrade everything to the latest versions — pick in a TUI
+# Upgrade actions interactively in a TUI
 actup
 
 # Preview changes without touching files
@@ -82,8 +82,8 @@ gh actup --help
 
 Binaries are mirrored to [lynicis/gh-actup](https://github.com/lynicis/gh-actup)
 because `gh` only installs extensions from repositories named `gh-*`. Upgrade with
-`gh extension upgrade actup`; 32-bit Linux ARM is not reachable this way — use the
-`.deb`/`.rpm` packages instead.
+`gh extension upgrade actup` (32-bit Linux ARM is not supported by gh extensions; use the
+`.deb` or `.rpm` packages instead).
 
 ### Package Managers
 
@@ -199,7 +199,7 @@ $ actup --no-tui
 1 action upgraded, 0 skipped (up to date), 0 skipped (API error), 3 skipped (breaking changes)
 ```
 
-Answering `y` applies that upgrade; answering `n` skips it. A separate `actup --no-tui --force` run applies the remaining three without prompting. The workflow then reads — `with:` inputs, step order, and unrelated steps untouched:
+Answering `y` applies that upgrade; answering `n` skips it. Running `actup --no-tui --force` applies remaining upgrades without prompting. The updated workflow preserves inputs, step order, and surrounding YAML:
 
 ```yaml
       - uses: actions/checkout@v7
@@ -212,30 +212,23 @@ Answering `y` applies that upgrade; answering `n` skips it. A separate `actup --
 
 ## Features
 
-- **Version manager commands** — `use`, `pin`/`unpin`, `ls`, `init`, `sync`, and `outdated` give you nvm-style control over action versions
-- **Vulnerability audit** — `actup audit` checks every action version against the OSV.dev advisory database (GitHub Actions ecosystem); the TUI and non-interactive flows also warn inline
-- **`actions.lock` integration** — reads `.github/workflows/actions.lock`, scans transitive dependencies in `actup audit`, shows `[locked]` / `[lock stale]` in `actup ls`, and re-locks automatically after workflow edits
-- **Manifest as source of truth** — `.actup.yaml` declares your action versions; `sync` applies it to every workflow
-- **Workflow discovery** — recursively finds `.yml` / `.yaml` files under `.github/workflows/`
-- **Interactive TUI** — Bubble Tea–powered checklist with select-all, per-action toggle, and breaking-change detail view
-- **Non-interactive mode** — `--no-tui` upgrades everything; prompts on TTY for breaking changes (override with `--force`)
-- **Breaking-change detection** — embedded registry of known breaking changes between major versions
-- **Major-tag or full semver** — default resolves `v5`-style tags; `--semver` opts into `v5.3.1` pinning
-- **Commit SHA pinning** — `--sha` (or `sha: true` in the manifest) writes `@<sha> # <tag>`; existing SHA pins stay pinned
-- **Dry-run** — `--dry-run` previews a diff without touching files
-- **Atomic writes** — temp-file + rename prevents partial updates
-- **Concurrent API** — up to 5 parallel GitHub requests with in-memory caching
-- **GitHub CLI fallback** — auto-discovers tokens from `gh auth token` when no env var is set
+- **Manifest-driven**: Declare versions in `.actup.yaml`; enforce them across workflows with `actup sync`.
+- **Interactive TUI**: Review outdated actions, inspect breaking change notes, and select updates in a Bubble Tea interface.
+- **Safety checks**: Embedded registry flags breaking changes before writing; OSV.dev integration reports known security advisories.
+- **Flexible versioning**: Support for moving major tags (`v5`), exact semver (`v5.3.1`), and commit SHAs with inline comments (`@<sha> # v5`).
+- **`actions.lock` support**: Audits direct and transitive dependencies, reports stale locks in `actup ls`, and auto-refreshes the lockfile.
+- **CI and automation**: Headless `--no-tui` mode, `--dry-run` diffs, atomic writes via temporary files, and pre-commit hooks (`actup install-hooks`).
+- **MCP server**: Built-in `actup mcp` exposes typed tools for AI coding assistants.
 
 ## Usage
 
 Run `actup` from the root of any repository with GitHub Actions workflows:
 
 ```sh
-# Interactive mode (default) — opens TUI to select upgrades
+# Interactive mode (default): opens TUI to select upgrades
 actup
 
-# Non-interactive mode — upgrades all actions automatically
+# Non-interactive mode: upgrades all actions automatically
 actup --no-tui
 
 # Preview changes without writing files
@@ -273,36 +266,36 @@ actup
 
 If your repository uses [`actions-lock`](https://github.com/github/actions-lockfile) (the `gh actions-lock` extension) and has a `.github/workflows/actions.lock` file, `actup` integrates with it:
 
-- **Automatic re-lock** — whenever `actup`, `actup use`, `actup sync`, or `actup audit --fix` writes to workflow files, `actup` runs `gh actions-lock` to refresh the lockfile. `--dry-run` never re-locks. If `gh` or the `gh-actions-lock` extension is missing, `actup` prints a warning and continues.
-- **Transitive dependencies in `audit`** — `actup audit` also checks the lockfile's transitive dependencies (not just direct `uses:` refs). Human-readable output marks them with `(transitive)`; `--json` sets `"transitive": true` on those findings. `audit --fix` rewrites only direct workflow files and reports any remaining transitive findings.
-- **Lock status in `ls`** — `actup ls` shows `[locked]` when an action matches the lockfile and `[lock stale]` when the workflow and lockfile disagree.
+- **Automatic re-lock**: When `actup`, `actup use`, `actup sync`, or `actup audit --fix` writes to workflow files, `actup` invokes `gh actions-lock` to refresh the lockfile. `--dry-run` skips re-locking. If `gh` or `gh-actions-lock` is missing, `actup` prints a warning and continues.
+- **Transitive dependencies in `audit`**: `actup audit` also checks lockfile transitive dependencies alongside direct `uses:` refs. Terminal output marks them with `(transitive)`; `--json` sets `"transitive": true` on those findings. `audit --fix` updates direct workflow files and reports remaining transitive findings.
+- **Lock status in `ls`**: `actup ls` shows `[locked]` when an action matches the lockfile and `[lock stale]` when the workflow and lockfile disagree.
 
 ## Version Manager
 
-`actup` treats `.actup.yaml` as the manifest of the action versions your repository declares — the same role `.nvmrc` plays for Node.
+`actup` treats `.actup.yaml` as the manifest of action versions declared for your repository, similar to `.nvmrc` for Node.
 
 | Command | nvm / fvm equivalent | What it does |
 |---|---|---|
 | `actup init` | `npm init` | Bootstrap `.actup.yaml` from the versions your workflows already use |
 | `actup use <action>@<ref>` | `nvm use` / `fvm use` | Set an action's version across **all** workflows and pin it in `.actup.yaml` |
 | `actup pin <action>[@<ref>]` | `nvm alias` | Record a pin in `.actup.yaml` without touching workflows |
-| `actup unpin <action>` | — | Remove a pin from `.actup.yaml` |
+| `actup unpin <action>` | (none) | Remove a pin from `.actup.yaml` |
 | `actup sync` | `fvm install` | Apply all `.actup.yaml` pins to your workflows |
 | `actup ls` | `nvm ls` | List actions in use, their versions, and pin status (`--outdated` adds latest versions) |
 | `actup outdated` | `nvm outdated` | List actions that can be upgraded (exits non-zero if any) |
 | `actup audit` | `npm audit` | Check action versions against known vulnerabilities (exits non-zero if any) |
-| `actup` | `nvm upgrade` | Interactively upgrade everything to the latest versions (TUI) |
+| `actup` | `nvm upgrade` | Interactively upgrade actions to latest versions (TUI) |
 
 ### Ref resolution in `use`
 
 | Argument | Behavior |
 |---|---|
-| `@v5` | Written verbatim — the standard moving major tag |
-| `@5` | Resolved via the GitHub API to the latest tag within major v5 (e.g. `v5.3.1`) |
+| `@v5` | Written verbatim as a moving major tag |
+| `@5` | Resolved via GitHub API to the latest tag within major v5 (e.g. `v5.3.1`) |
 | `@latest` / no `@ref` | Resolved to the latest tag (major tag, or full semver with `--semver`) |
 | `@v5.3.1`, `@master` | Written verbatim |
 
-`use` saves the pin to `.actup.yaml` by default so your manifest stays the source of truth; pass `--no-save` to only update workflows, or `--dry-run` to change nothing.
+`actup use` saves the pin to `.actup.yaml` by default. Pass `--no-save` to update workflows only, or `--dry-run` to preview changes.
 
 ### Typical workflow
 
@@ -345,9 +338,7 @@ The skill scans your `.github/workflows/*.yml` files, resolves the latest versio
 
 ## MCP
 
-`actup mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, so AI coding agents (Claude Code, Codex, Cursor, Gemini CLI, OpenCode, …) can call actup as typed tools instead of parsing CLI text. It reads and writes: upgrades, pins, and config writes only happen when the agent calls the matching tool.
-
-The examples below cover the most widely used harnesses, ordered by adoption — Claude Code and GitHub Copilot lead developer surveys ([Stack Overflow 2026](https://survey.stackoverflow.co/2026/ai/data/ai-code-agent), [JetBrains 2026](https://blog.jetbrains.com/research/2026/08/ai-coding-agent-adoption-2026/)), followed by Codex, Cursor, and the open-source CLIs. Any other MCP-capable client works the same way.
+`actup mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, allowing AI coding assistants to inspect and update action versions through typed tools rather than CLI text scraping. Upgrades, pins, and config writes happen only when the assistant invokes the corresponding tool.
 
 ### Claude Code
 
@@ -361,7 +352,7 @@ claude mcp add actup -- actup mcp
 codex mcp add actup -- actup mcp
 ```
 
-Or in `~/.codex/config.toml` (or a trusted project's `.codex/config.toml`):
+Or in `~/.codex/config.toml` (or `.codex/config.toml`):
 
 ```toml
 [mcp_servers.actup]
@@ -371,7 +362,7 @@ args = ["mcp"]
 
 ### Cursor, Gemini CLI, Antigravity, oh-my-pi
 
-These clients share the same `mcpServers` JSON shape:
+These clients share the same `mcpServers` JSON structure:
 
 ```json
 {
@@ -390,8 +381,6 @@ These clients share the same `mcpServers` JSON shape:
 |Gemini CLI|`~/.gemini/settings.json` (project: `.gemini/settings.json`)|
 |Antigravity CLI|`~/.gemini/config/mcp_config.json` (workspace: `.agents/mcp_config.json`)|
 |oh-my-pi (`omp`)|`~/.omp/agent/mcp.json` (project: `.omp/mcp.json`), or `/mcp add` inside omp|
-
-Google replaced the consumer-tier Gemini CLI with Antigravity CLI in June 2026; both read the same server entry shape.
 
 ### OpenCode
 
@@ -427,10 +416,10 @@ Google replaced the consumer-tier Gemini CLI with Antigravity CLI in June 2026; 
 }
 ```
 
-- Run the server from the repository root; tools discover `.github/workflows/`, `.actup.yaml`, and `actions.lock` relative to the working directory, exactly like the CLI.
-- The GitHub token is resolved from `GITHUB_TOKEN` or `gh auth token` — it is never a tool parameter.
-- `upgrade_actions` skips actions with known breaking changes or vulnerable target versions unless called with `force: true`; use `dry_run: true` to preview a plan without writing.
-- Tools never shell out to `gh actions-lock`; when an `actions.lock` exists, results carry a `lockfile_note` telling you to refresh it.
+- Run the server from the repository root; tools discover `.github/workflows/`, `.actup.yaml`, and `actions.lock` relative to the working directory.
+- The GitHub token is resolved automatically from `GITHUB_TOKEN` or `gh auth token` (never passed as a tool parameter).
+- `upgrade_actions` skips actions with known breaking changes or vulnerable target versions unless called with `force: true`. Use `dry_run: true` to preview changes.
+- MCP tools do not shell out to `gh actions-lock` directly; when `actions.lock` exists, results include a `lockfile_note` to refresh it.
 
 |Tool|What it does|
 |---|---|
@@ -460,7 +449,7 @@ gh auth login
 
 ### Config File (`.actup.yaml`)
 
-`.actup.yaml` is your action version manifest — the declared source of truth that `actup sync` applies to your workflows. `actup init` generates it, `actup use` and `actup pin` keep it up to date, and `actup outdated` honors it. Editors supporting YAML language servers will provide autocomplete and validation if you add the `$schema` directive:
+`.actup.yaml` is the manifest of declared action versions for your workflows. `actup init` generates it, `actup use` and `actup pin` maintain it, and `actup outdated` checks against it. Editors supporting YAML language servers provide autocomplete and validation with the `$schema` directive:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/lynicis/actup/main/schema.json
@@ -491,11 +480,11 @@ groups:
     - softprops/action-gh-release
 ```
 
-`pins` holds what you asked for; `actions` records what your workflows currently use. Constraints:
+`pins` defines target constraints; `actions` records current workflow state. Constraints:
 
-- **Exact ref** (`v5`, `v5.3.1`, `master`) — applied verbatim
-- **Major number** (`4`) — resolved to the latest tag within that major via the GitHub API
-- **`skip`** — the action is excluded from upgrades and syncing
+- **Exact ref** (`v5`, `v5.3.1`, `master`): Applied verbatim.
+- **Major number** (`4`): Resolved to the latest tag within that major via the GitHub API.
+- **`skip`**: Excluded from upgrades and syncing.
 
 With `sha: true`, `sync` and upgrades resolve each target tag to its commit SHA and write `owner/repo@<sha> # <tag>`. Pins still store the tag; a bare SHA without the trailing comment has no version and is skipped by vulnerability and breaking-change checks. `use --sha`, `sync --sha`, and `--sha=false` override the manifest setting.
 
@@ -503,11 +492,11 @@ A manifest without a `pins:` key is legacy: every `actions:` entry is treated as
 
 **Precedence**: CLI flags > config file > built-in defaults.
 
-Positional arguments are `path.Match` globs matched against `owner/repo` (the search is a union; `skip` still subtracts afterwards). Because `actup` accepts arbitrary positional filters, a typo such as `actup udpate` is treated as a filter rather than an unknown command — it fails with a no-match error before any network call or TUI start. Quote globs in your shell: `actup 'actions/*'`.
+Positional arguments are `path.Match` globs matched against `owner/repo` (union match; `skip` subtracts). Because `actup` accepts arbitrary positional filters, an unrecognized command argument like `actup udpate` is treated as a filter, failing immediately with a no-match error before network calls or TUI initialization. Quote globs in shell invocations: `actup 'actions/*'`.
 
 ## Pre-commit Hooks
 
-Catch stale action versions before they land in a commit — two options:
+Catch stale action versions before committing:
 
 ### `actup install-hooks` (built-in)
 
@@ -536,59 +525,45 @@ repos:
 
 ## Breaking Changes
 
-`actup` includes an embedded registry of known breaking changes between major versions. When an upgrade involves breaking changes:
+`actup` embeds a registry of known breaking changes between major versions. When an upgrade involves breaking changes:
 
-- **TUI mode**: Shows a `⚠ breaking changes` badge — press `i` for details
-- **Non-interactive mode**: Prompts for confirmation on TTY, or use `--force` to skip prompts
+- **TUI mode**: Displays a `⚠ breaking changes` badge (press `i` for details).
+- **Non-interactive mode**: Prompts for confirmation on interactive terminals, or use `--force` to bypass prompts.
 
-The registry lives in [`internal/breakingchanges/registry.yaml`](internal/breakingchanges/registry.yaml). Contributions welcome — if you encounter a breaking change not in the registry, please open a PR.
+The registry lives in [`internal/breakingchanges/registry.yaml`](internal/breakingchanges/registry.yaml). If you encounter an unlisted breaking change, pull requests are welcome.
 
 ## Vulnerability Audit
 
-`actup audit` checks every `uses:` reference in your workflows against the [OSV.dev](https://osv.dev) advisory database (GitHub Actions ecosystem). It reports the advisory ID, severity, and the first fixed version:
+`actup audit` checks every `uses:` reference in your workflows against the [OSV.dev](https://osv.dev) advisory database (GitHub Actions ecosystem). It reports the advisory ID, severity, and the first patched version:
 
-```bash
-actup audit            # human-readable output
+```sh
+actup audit            # human-readable summary
 actup audit --json     # machine-readable output for CI
 ```
 
 - Exits `1` when vulnerable action versions are found and `2` when the OSV database cannot be reached.
-- Vulnerability matching happens client-side against OSV range data, so major-tag refs (e.g. `@v4`) are matched correctly even though OSV only indexes full semver tags.
+- Vulnerability matching runs client-side against OSV range data, matching major-tag refs (such as `@v4`) against semver advisories.
 - Actions marked `skip` in `.actup.yaml` are excluded.
-- The interactive TUI and `--no-tui` upgrade flows also warn inline: the TUI shows a `⚠ vulnerable` badge (press `i` for details), and non-interactive runs print warnings before upgrading.
-- `actup use`, `actup sync`, and `actup outdated` surface the same warnings, and `use`/`sync` also check the **target version** you're about to pin: if that version is itself affected by a known advisory, you'll see it before anything is written (interactive `y/N` prompt on a TTY, notice + proceed in CI, auto-proceed with `--force`/`--dry-run`).
+- The interactive TUI and `--no-tui` upgrade flows warn inline: the TUI shows a `⚠ vulnerable` badge (press `i` for details), and non-interactive runs print warnings before upgrading.
+- `actup use`, `actup sync`, and `actup outdated` surface the same warnings. `use` and `sync` also verify target versions before writing, warning if the target version is affected by a known advisory.
 
 ## Roadmap
 
-- [x] Interactive TUI with checklist selection
-- [x] Non-interactive (`--no-tui`) mode
-- [x] Dry-run support
-- [x] Concurrent GitHub API calls with rate-limit awareness
-- [x] Cross-platform builds (Linux, macOS, Windows)
-- [x] Pre-commit hooks for CI integration
-- [x] Major version pinning (`--major`)
-- [x] Config file support (`.actup.yaml`)
-- [x] Breaking-change detection with embedded registry
-- [x] Full semver tag resolution (`--semver`)
-- [x] Vulnerability audit against OSV.dev (`actup audit`)
-- [x] Grouped / filtered upgrades (`actup 'actions/*'`, `--group`)
-- [ ] Pre-upgrade hooks / custom validation
+Planned features:
+- [ ] Pre-upgrade hooks and custom validation scripts
+- [ ] Automated pull request creation for CI workflows
 
-See [open issues](https://github.com/lynicis/actup/issues) for the full list of proposed features and known issues.
+See [open issues](https://github.com/lynicis/actup/issues) for planned work and feature discussions.
 
 ## Contributing
 
-Contributions are welcome! Here's how to get started:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and lint: `make test && make lint`
-5. Commit with a descriptive message (`git commit -m 'feat: add amazing feature'`)
-6. Push to your fork (`git push origin feature/amazing-feature`)
-7. Open a pull request
-
-Please ensure your code passes existing tests and follows the project's style conventions.
+1. Fork the repository and create a branch.
+2. Make your changes and add tests where appropriate.
+3. Ensure tests and linter pass:
+   ```sh
+   make test && make lint
+   ```
+4. Submit a pull request.
 
 ## License
 
@@ -596,9 +571,8 @@ Distributed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 ## Acknowledgments
 
-Built with these excellent libraries:
-
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) — TUI framework
-- [Cobra](https://github.com/spf13/cobra) — CLI framework
-- [go-github](https://github.com/google/go-github) — GitHub API client
-- [go-yaml](https://github.com/goccy/go-yaml) — YAML parser
+Built with:
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) (TUI framework)
+- [Cobra](https://github.com/spf13/cobra) (CLI framework)
+- [go-github](https://github.com/google/go-github) (GitHub API client)
+- [go-yaml](https://github.com/goccy/go-yaml) (YAML parser)
