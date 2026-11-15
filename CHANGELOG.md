@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.1] - 2026-11-16
 
 ### Added
 - Graphify rebuild hook now runs on post-rewrite in addition to commit, checkout, and merge
@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Graphify rebuild output is redirected to a log file instead of being discarded
 
 ### Fixed
-- The TUI's `i` key now opens a details view for every action, reporting current and latest versions plus any API errors, instead of doing nothing when an action has no breaking changes or vulnerabilities.
+- The TUI's `i` key now opens a details view for every action, reporting current and latest versions plus any API or vulnerability check errors, instead of doing nothing when an action has no breaking changes or vulnerabilities.
 
 ## [0.10.0] - 2026-11-14
 
@@ -262,7 +262,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
-[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/lynicis/actup/releases/tag/v0.10.1
 [0.10.0]: https://github.com/lynicis/actup/releases/tag/v0.10.0
 [0.9.1]: https://github.com/lynicis/actup/releases/tag/v0.9.1
 [0.9.0]: https://github.com/lynicis/actup/releases/tag/v0.9.0
