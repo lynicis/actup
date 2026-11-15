@@ -61,6 +61,14 @@ type ActionItem struct {
 	VulnErrorMsg    string
 }
 
+// CurrentLabel renders all versions in use, joining mixed-version groups.
+func (i ActionItem) CurrentLabel() string {
+	if len(i.Currents) > 1 {
+		return strings.Join(i.Currents, ", ")
+	}
+	return i.Current
+}
+
 type progressItem struct {
 	Owner  string
 	Repo   string
@@ -714,17 +722,37 @@ func (m model) viewChecklist() string {
 	return b.String()
 }
 
-// currentLabel renders all versions in use, joining mixed-version groups.
-func currentLabel(item ActionItem) string {
-	if len(item.Currents) > 1 {
-		return strings.Join(item.Currents, ", ")
+// writeVersions renders current → latest, one line per version in use.
+func writeVersions(b *strings.Builder, item ActionItem) {
+	currents := item.Currents
+	if len(currents) == 0 {
+		currents = []string{item.Current}
 	}
-	return item.Current
+	if len(currents) == 1 {
+		fmt.Fprintf(b, "  %s → %s\n\n", currents[0], item.Latest)
+		return
+	}
+	for _, c := range currents {
+		fmt.Fprintf(b, "  %s → %s\n", c, item.Latest)
+	}
+	b.WriteString("\n")
 }
 
-// viewActionInfo renders details for an action with no breaking-change or
+// writeVersionError renders a failed version check, distinguishing a failed SHA
+// resolution from an unavailable latest version.
+func writeVersionError(b *strings.Builder, item ActionItem) {
+	if item.Latest != "" {
+		fmt.Fprintf(b, "  latest version: %s\n", item.Latest)
+		b.WriteString(amberStyle.Render(fmt.Sprintf("  SHA resolution failed: %s", item.APIErrorMsg)))
+	} else {
+		b.WriteString(amberStyle.Render(fmt.Sprintf("  latest version unavailable: %s", item.APIErrorMsg)))
+	}
+	b.WriteString("\n\n")
+}
+
+// viewDetailNoFindings renders details for an action with no breaking-change or
 // vulnerability findings to show.
-func (m model) viewActionInfo() string {
+func (m model) viewDetailNoFindings() string {
 	var b strings.Builder
 
 	item := m.items[m.detailItem]
@@ -732,23 +760,19 @@ func (m model) viewActionInfo() string {
 	b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Details", item.Owner, item.Repo)))
 	b.WriteString("\n\n")
 
-	current := currentLabel(item)
+	current := item.CurrentLabel()
 	switch {
 	case item.APIError:
 		fmt.Fprintf(&b, "  current version: %s\n", current)
-		b.WriteString(amberStyle.Render(fmt.Sprintf("  latest version unavailable: %s", item.APIErrorMsg)))
-		b.WriteString("\n\n")
+		writeVersionError(&b, item)
 	case item.UpToDate:
-		fmt.Fprintf(&b, "  %s (up to date)\n\n", current)
+		if item.Latest != "" && item.Latest != current {
+			fmt.Fprintf(&b, "  %s (up to date, latest %s)\n\n", current, item.Latest)
+		} else {
+			fmt.Fprintf(&b, "  %s (up to date)\n\n", current)
+		}
 	default:
-		currents := item.Currents
-		if len(currents) == 0 {
-			currents = []string{current}
-		}
-		for _, c := range currents {
-			fmt.Fprintf(&b, "  %s → %s\n", c, item.Latest)
-		}
-		b.WriteString("\n")
+		writeVersions(&b, item)
 	}
 
 	if item.VulnErrorMsg != "" {
@@ -771,14 +795,19 @@ func (m model) viewDetail() string {
 	item := m.items[m.detailItem]
 
 	if len(item.Vulns) == 0 && len(item.BreakingChanges) == 0 {
-		return m.viewActionInfo()
+		return m.viewDetailNoFindings()
 	}
 
 	if len(item.Vulns) > 0 {
 		b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Vulnerabilities", item.Owner, item.Repo)))
 		b.WriteString("\n\n")
 
-		fmt.Fprintf(&b, "  current version: %s\n\n", currentLabel(item))
+		fmt.Fprintf(&b, "  current version: %s\n", item.CurrentLabel())
+		if item.APIError {
+			writeVersionError(&b, item)
+		} else {
+			fmt.Fprintf(&b, "  latest version: %s\n\n", item.Latest)
+		}
 
 		for _, v := range item.Vulns {
 			severity := v.Severity
@@ -819,14 +848,7 @@ func (m model) viewDetail() string {
 	b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Breaking Changes", item.Owner, item.Repo)))
 	b.WriteString("\n\n")
 
-	if len(item.Currents) > 1 {
-		for _, current := range item.Currents {
-			fmt.Fprintf(&b, "  %s → %s\n", current, item.Latest)
-		}
-		b.WriteString("\n")
-	} else {
-		fmt.Fprintf(&b, "  %s → %s\n\n", item.Current, item.Latest)
-	}
+	writeVersions(&b, item)
 
 	for _, bc := range item.BreakingChanges {
 		b.WriteString(amberStyle.Render(fmt.Sprintf("  ⚠ %s", bc.Message)))

@@ -174,7 +174,7 @@ func TestUpdateChecklistInfoOpensDetailsWithoutWarnings(t *testing.T) {
 	}
 }
 
-func TestViewDetailInfoWithoutWarnings(t *testing.T) {
+func TestViewDetailNoFindings(t *testing.T) {
 	m := model{
 		state:      stateDetail,
 		detailItem: 0,
@@ -192,7 +192,7 @@ func TestViewDetailInfoWithoutWarnings(t *testing.T) {
 	}
 }
 
-func TestViewDetailInfoAPIError(t *testing.T) {
+func TestViewDetailNoFindingsAPIError(t *testing.T) {
 	m := model{
 		state:      stateDetail,
 		detailItem: 0,
@@ -210,6 +210,68 @@ func TestViewDetailInfoAPIError(t *testing.T) {
 	}
 	if strings.Contains(clean, "v4 →") {
 		t.Errorf("detail view should not render an arrow without a latest version:\n%s", clean)
+	}
+}
+
+func TestViewDetailNoFindingsUpToDateSHA(t *testing.T) {
+	m := model{
+		state:      stateDetail,
+		detailItem: 0,
+		items: []ActionItem{
+			{Owner: "actions", Repo: "checkout", Current: "0123456789abcdef0123456789abcdef01234567", Latest: "v5", UpToDate: true},
+		},
+	}
+
+	clean := stripANSI(m.viewDetail())
+
+	if !strings.Contains(clean, "latest v5") {
+		t.Errorf("up-to-date SHA detail view should show the latest tag:\n%s", clean)
+	}
+}
+
+func TestViewDetailNoFindingsAPIErrorKnownLatest(t *testing.T) {
+	m := model{
+		state:      stateDetail,
+		detailItem: 0,
+		items: []ActionItem{
+			{Owner: "actions", Repo: "checkout", Current: "0123456789abcdef0123456789abcdef01234567", Latest: "v5", APIError: true, APIErrorMsg: "tag not found"},
+		},
+	}
+
+	clean := stripANSI(m.viewDetail())
+
+	for _, want := range []string{"latest version: v5", "SHA resolution failed: tag not found"} {
+		if !strings.Contains(clean, want) {
+			t.Errorf("detail view missing %q in output:\n%s", want, clean)
+		}
+	}
+	if strings.Contains(clean, "unavailable") {
+		t.Errorf("detail view should not claim the latest version is unavailable when the tag is known:\n%s", clean)
+	}
+}
+
+func TestViewDetailVulnerabilitiesShowsAPIError(t *testing.T) {
+	m := model{
+		state:      stateDetail,
+		detailItem: 0,
+		items: []ActionItem{
+			{
+				Owner: "tj-actions", Repo: "changed-files", Current: "v40", Latest: "v47",
+				APIError: true, APIErrorMsg: "sha lookup failed",
+				HasVulns: true,
+				Vulns: []vulnscanner.Vulnerability{
+					{ID: "GHSA-TEST-1", Severity: "HIGH", Summary: "command injection", Fixed: "46.0.1"},
+				},
+			},
+		},
+	}
+
+	clean := stripANSI(m.viewDetail())
+
+	for _, want := range []string{"GHSA-TEST-1", "latest version: v47", "SHA resolution failed: sha lookup failed"} {
+		if !strings.Contains(clean, want) {
+			t.Errorf("vulnerability detail view missing %q in output:\n%s", want, clean)
+		}
 	}
 }
 
