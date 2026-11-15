@@ -1,4 +1,4 @@
-default_install_hook_types: [pre-commit, post-commit, post-checkout, post-merge]
+default_install_hook_types: [pre-commit, post-commit, post-checkout, post-merge, post-rewrite]
 default_stages: [pre-commit]
 
 repos:
@@ -36,8 +36,38 @@ repos:
 
       - id: graphify-update
         name: Graphify knowledge graph update
-        entry: sh -c 'command -v graphify >/dev/null 2>&1 || exit 0; [ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] || exit 0; nohup graphify update . >/dev/null 2>&1 &'
+        description: Auto-rebuilds the knowledge graph in the background on commit, checkout, merge, and rebase.
+        entry: >-
+          bash -c '
+          [ "${GRAPHIFY_SKIP_HOOK:-0}" = "1" ] && exit 0;
+          command -v graphify >/dev/null 2>&1 || exit 0;
+          [ -d "graphify-out" ] || exit 0;
+          _git_dir=$(git rev-parse --git-dir 2>/dev/null) || exit 0;
+          _common_dir=$(git rev-parse --git-common-dir 2>/dev/null) || exit 0;
+          [ -n "$_common_dir" ] && [ "$_git_dir" != "$_common_dir" ] && exit 0;
+          [ -d "$_git_dir/rebase-merge" ] && exit 0;
+          [ -d "$_git_dir/rebase-apply" ] && exit 0;
+          [ -f "$_git_dir/MERGE_HEAD" ] && exit 0;
+          if [ -n "$PRE_COMMIT_CHECKOUT_TYPE" ]; then
+            [ "$PRE_COMMIT_CHECKOUT_TYPE" != "1" ] && exit 0;
+            [ -n "$PRE_COMMIT_FROM_REF" ] && [ "$PRE_COMMIT_FROM_REF" = "$PRE_COMMIT_TO_REF" ] && exit 0;
+          fi;
+          if [ -n "$PRE_COMMIT_REWRITE_COMMAND" ]; then
+            [ "$PRE_COMMIT_REWRITE_COMMAND" != "rebase" ] && exit 0;
+          fi;
+          if [ -z "$PRE_COMMIT_CHECKOUT_TYPE" ] && [ -z "$PRE_COMMIT_REWRITE_COMMAND" ] && [ -z "$PRE_COMMIT_IS_SQUASH_MERGE" ]; then
+            _changed=$(git -c core.quotePath=false diff --name-only HEAD~1 HEAD 2>/dev/null || git -c core.quotePath=false diff --name-only HEAD 2>/dev/null);
+            if [ -n "$_changed" ]; then
+              _non_graph=$(printf "%s\n" "$_changed" | grep -v "^graphify-out/");
+              [ -z "$_non_graph" ] && exit 0;
+            fi;
+          fi;
+          export PYTHONHASHSEED=0;
+          _log="${GRAPHIFY_REBUILD_LOG:-$HOME/.cache/graphify-rebuild.log}";
+          mkdir -p "$(dirname "$_log")" 2>/dev/null || true;
+          nohup graphify update . >> "$_log" 2>&1 &
+          '
         language: system
         pass_filenames: false
         always_run: true
-        stages: [post-commit, post-checkout, post-merge]
+        stages: [post-commit, post-checkout, post-merge, post-rewrite]
