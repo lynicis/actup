@@ -224,7 +224,7 @@ func (m model) updateChecklist(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "i":
-			if m.cursor >= 0 && m.cursor < len(m.items) && (len(m.items[m.cursor].BreakingChanges) > 0 || len(m.items[m.cursor].Vulns) > 0) {
+			if m.cursor >= 0 && m.cursor < len(m.items) {
 				m.detailItem = m.cursor
 				m.state = stateDetail
 			}
@@ -714,20 +714,71 @@ func (m model) viewChecklist() string {
 	return b.String()
 }
 
+// currentLabel renders all versions in use, joining mixed-version groups.
+func currentLabel(item ActionItem) string {
+	if len(item.Currents) > 1 {
+		return strings.Join(item.Currents, ", ")
+	}
+	return item.Current
+}
+
+// viewActionInfo renders details for an action with no breaking-change or
+// vulnerability findings to show.
+func (m model) viewActionInfo() string {
+	var b strings.Builder
+
+	item := m.items[m.detailItem]
+
+	b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Details", item.Owner, item.Repo)))
+	b.WriteString("\n\n")
+
+	current := currentLabel(item)
+	switch {
+	case item.APIError:
+		fmt.Fprintf(&b, "  current version: %s\n", current)
+		b.WriteString(amberStyle.Render(fmt.Sprintf("  latest version unavailable: %s", item.APIErrorMsg)))
+		b.WriteString("\n\n")
+	case item.UpToDate:
+		fmt.Fprintf(&b, "  %s (up to date)\n\n", current)
+	default:
+		currents := item.Currents
+		if len(currents) == 0 {
+			currents = []string{current}
+		}
+		for _, c := range currents {
+			fmt.Fprintf(&b, "  %s → %s\n", c, item.Latest)
+		}
+		b.WriteString("\n")
+	}
+
+	if item.VulnErrorMsg != "" {
+		b.WriteString(amberStyle.Render(fmt.Sprintf("  vulnerability check failed: %s", item.VulnErrorMsg)))
+		b.WriteString("\n\n")
+	} else if !item.APIError {
+		b.WriteString(dimStyle.Render("  No breaking changes or vulnerabilities to report."))
+		b.WriteString("\n\n")
+	}
+
+	b.WriteString(footerStyle.Render("  [esc] back"))
+	b.WriteString("\n")
+
+	return b.String()
+}
+
 func (m model) viewDetail() string {
 	var b strings.Builder
 
 	item := m.items[m.detailItem]
 
+	if len(item.Vulns) == 0 && len(item.BreakingChanges) == 0 {
+		return m.viewActionInfo()
+	}
+
 	if len(item.Vulns) > 0 {
 		b.WriteString(headerStyle.Render(fmt.Sprintf("  %s/%s — Vulnerabilities", item.Owner, item.Repo)))
 		b.WriteString("\n\n")
 
-		currentLabel := item.Current
-		if len(item.Currents) > 1 {
-			currentLabel = strings.Join(item.Currents, ", ")
-		}
-		fmt.Fprintf(&b, "  current version: %s\n\n", currentLabel)
+		fmt.Fprintf(&b, "  current version: %s\n\n", currentLabel(item))
 
 		for _, v := range item.Vulns {
 			severity := v.Severity

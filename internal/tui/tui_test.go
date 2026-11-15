@@ -154,6 +154,65 @@ func TestUpdateChecklistTogglesSelection(t *testing.T) {
 	}
 }
 
+func TestUpdateChecklistInfoOpensDetailsWithoutWarnings(t *testing.T) {
+	m := model{
+		state: stateChecklist,
+		items: []ActionItem{
+			{Owner: "actions", Repo: "checkout", Current: "v4", Latest: "v5", Selected: true},
+		},
+		cursor: 0,
+	}
+
+	newModel, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
+	updated := newModel.(model)
+
+	if updated.state != stateDetail {
+		t.Fatalf("expected stateDetail after pressing i, got %d", updated.state)
+	}
+	if updated.detailItem != 0 {
+		t.Errorf("expected detailItem 0, got %d", updated.detailItem)
+	}
+}
+
+func TestViewDetailInfoWithoutWarnings(t *testing.T) {
+	m := model{
+		state:      stateDetail,
+		detailItem: 0,
+		items: []ActionItem{
+			{Owner: "actions", Repo: "checkout", Current: "v4", Latest: "v5"},
+		},
+	}
+
+	clean := stripANSI(m.viewDetail())
+
+	for _, want := range []string{"actions/checkout — Details", "v4 → v5", "No breaking changes or vulnerabilities to report."} {
+		if !strings.Contains(clean, want) {
+			t.Errorf("detail view missing %q in output:\n%s", want, clean)
+		}
+	}
+}
+
+func TestViewDetailInfoAPIError(t *testing.T) {
+	m := model{
+		state:      stateDetail,
+		detailItem: 0,
+		items: []ActionItem{
+			{Owner: "actions", Repo: "checkout", Current: "v4", APIError: true, APIErrorMsg: "rate limited"},
+		},
+	}
+
+	clean := stripANSI(m.viewDetail())
+
+	for _, want := range []string{"actions/checkout — Details", "current version: v4", "latest version unavailable: rate limited"} {
+		if !strings.Contains(clean, want) {
+			t.Errorf("detail view missing %q in output:\n%s", want, clean)
+		}
+	}
+	if strings.Contains(clean, "v4 →") {
+		t.Errorf("detail view should not render an arrow without a latest version:\n%s", clean)
+	}
+}
+
 func TestViewChecklistRendering(t *testing.T) {
 	m := model{
 		state: stateChecklist,

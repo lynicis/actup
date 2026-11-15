@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - Graphify rebuild output is redirected to a log file instead of being discarded
+
+### Fixed
+- The TUI's `i` key now opens a details view for every action, reporting current and latest versions plus any API errors, instead of doing nothing when an action has no breaking changes or vulnerabilities.
+
 ## [0.10.0] - 2026-11-14
 
 ### Added
