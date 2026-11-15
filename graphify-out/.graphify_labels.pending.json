@@ -1,16 +1,14 @@
 {
   "0": "mcp_tools.go",
-  "2": "vulnscanner_test.go",
-  "9": "testing.T",
-  "17": "ActionRef",
-  "21": "context.Context",
+  "1": "parser.go",
+  "2": "testing.T",
+  "4": "audit.go",
+  "6": "go_pkg_path_filepath",
+  "14": "testing.T",
+  "15": "mcp_test.go",
+  "17": "lockfile.go",
   "23": "Brag Plan: actup",
   "39": "eventsAffect",
   "47": "Product Marketing Context",
-  "48": "Config",
-  "49": "scanner_test.go",
-  "52": "Hyperframes Composition Brief: actup",
-  "53": "Design: GitHub Actions Lockfile (`actions.lock`) Integration & `gh actup` CLI Extension",
-  "54": "AGENTS.md",
-  "55": "isGHExtensionInvocation"
+  "52": "Hyperframes Composition Brief: actup"
 }
