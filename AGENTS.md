@@ -26,7 +26,7 @@ Tests write to `t.TempDir()`; no network or disk fixtures. Mock `github`/`token`
 | `internal/github` | `go-github/v89` client: tag lookup (major or semver mode), `ResolveTagSHA`, in-memory cache; `NewClientWithBaseURL` points it at httptest server |
 | `internal/token` | `--token` → `GITHUB_TOKEN` → `gh auth token` |
 | `internal/config` | `.actup.yaml` manifest (`major`, `sha`, `pins`, `actions`, `groups`); `EffectivePins()` resolves constraints |
-| `internal/tui` | Bubble Tea checklist with breaking-change / vulnerability detail views |
+| `internal/tui` | Bubble Tea checklist with per-action detail views (versions, breaking changes, vulnerabilities, API errors) |
 | `internal/upgrader` | Atomic edits via temp file + rename; single-tag or per-action maps |
 | `internal/breakingchanges` | Embedded `registry.yaml` (goccy/go-yaml) |
 | `internal/vulnscanner` | OSV.dev `querybatch` + parallel `/vulns/{id}`; version matching is client-side |
