@@ -110,6 +110,9 @@ release:
   github:
     owner: lynicis
     name: actup
+  # Re-running the release job for an existing tag must not fail: delete the
+  # colliding asset and retry the upload.
+  replace_existing_artifacts: true
   draft: false
   prerelease: auto
 
