@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-11-19
+
+### Added
+- **`actup` agent skill.** Added a distributable agent skill under `skills/actup/` (`SKILL.md` and `REFERENCE.md`) documenting `actup` CLI workflows and installation via `npx skills add lynicis/actup --skill actup`.
+
 ## [0.10.1] - 2026-11-16
 
 ### Added
@@ -262,7 +267,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
-[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/lynicis/actup/releases/tag/v0.10.2
 [0.10.1]: https://github.com/lynicis/actup/releases/tag/v0.10.1
 [0.10.0]: https://github.com/lynicis/actup/releases/tag/v0.10.0
 [0.9.1]: https://github.com/lynicis/actup/releases/tag/v0.9.1

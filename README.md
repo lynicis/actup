@@ -541,7 +541,7 @@ Add to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/lynicis/actup
-    rev: v0.10.1
+    rev: v0.10.2
     hooks:
       - id: actup-check
 ```
