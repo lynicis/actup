@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.3] - 2026-11-19
+
+### Added
+- **Chocolatey packaging and automated publishing.** Added Chocolatey package templates under `packaging/chocolatey/` (`actup.nuspec` and SHA256-verified `Get-ChocolateyWebFile` install script) and a reusable `windows-latest` workflow (`.github/workflows/publish-chocolatey.yml`) called by `release.yml` to pack, verify (`choco install`, `actup --version`, `choco uninstall`), and push to the Chocolatey Community Repository.
+- **Release integrity documentation.** Documented SHA256 release checksums, GitHub build provenance attestations, Cosign container signatures, and Chocolatey package verification in `SECURITY.md`, and added Chocolatey installation instructions to `README.md`, `llms.txt`, `llm.txt`, and `AGENTS.md`.
+
 ## [0.10.2] - 2026-11-19
 
 ### Added
@@ -267,7 +273,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
-[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.3...HEAD
+[0.10.3]: https://github.com/lynicis/actup/releases/tag/v0.10.3
 [0.10.2]: https://github.com/lynicis/actup/releases/tag/v0.10.2
 [0.10.1]: https://github.com/lynicis/actup/releases/tag/v0.10.1
 [0.10.0]: https://github.com/lynicis/actup/releases/tag/v0.10.0
