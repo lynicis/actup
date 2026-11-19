@@ -103,3 +103,13 @@ jobs:
             gh release create "$TAG" --repo lynicis/gh-actup --title "actup $TAG" \
               --notes-file notes.md "${prerelease[@]}" ext/*
           fi
+
+  publish-chocolatey:
+    name: Publish Chocolatey Package
+    needs: release
+    if: "!contains(github.ref_name, '-')"
+    uses: ./.github/workflows/publish-chocolatey.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}

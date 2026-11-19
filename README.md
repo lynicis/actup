@@ -81,7 +81,7 @@ actup --dry-run
 Copy and paste this prompt into your AI coding assistant (Claude Code, Cursor, GitHub Copilot, Antigravity, etc.) to automate installation and setup:
 
 ```text
-Install actup on my system. First inspect my environment and ask me whether I want to install it as a GitHub CLI extension (`gh actup`) or as a standalone CLI (`actup`) (via Homebrew, Scoop, Go, or native packages). Once installed and verified, ask if I also want to configure the `actup mcp` server for my current AI assistant/editor, and if so, set up the appropriate MCP configuration. Refer to https://raw.githubusercontent.com/lynicis/actup/main/llms.txt for full instructions.
+Install actup on my system. First inspect my environment and ask me whether I want to install it as a GitHub CLI extension (`gh actup`) or as a standalone CLI (`actup`) (via Homebrew, Scoop, Chocolatey, Go, or native packages). Once installed and verified, ask if I also want to configure the `actup mcp` server for my current AI assistant/editor, and if so, set up the appropriate MCP configuration. Refer to https://raw.githubusercontent.com/lynicis/actup/main/llms.txt for full instructions.
 ```
 
 ### GitHub CLI extension
@@ -110,6 +110,11 @@ brew install actup
 ```powershell
 scoop bucket add actup https://github.com/lynicis/scoop-bucket.git
 scoop install actup
+```
+
+**Chocolatey** (Windows):
+```powershell
+choco install actup
 ```
 
 **Go install**:

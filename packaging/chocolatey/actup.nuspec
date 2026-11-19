@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>actup</id>
+    <version>{{VERSION}}</version>
+    <packageSourceUrl>https://github.com/lynicis/actup/tree/main/packaging/chocolatey</packageSourceUrl>
+    <owners>lynicis</owners>
+    <title>actup</title>
+    <authors>Emre Sırmalı</authors>
+    <projectUrl>https://github.com/lynicis/actup</projectUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/lynicis/actup@v{{VERSION}}/logo.png</iconUrl>
+    <copyright>Copyright (c) 2026 Emre Sırmalı</copyright>
+    <licenseUrl>https://github.com/lynicis/actup/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/lynicis/actup</projectSourceUrl>
+    <docsUrl>https://github.com/lynicis/actup#readme</docsUrl>
+    <bugTrackerUrl>https://github.com/lynicis/actup/issues</bugTrackerUrl>
+    <tags>github-actions cli version-manager devops security osv</tags>
+    <summary>A version manager for GitHub Actions with breaking-change warnings and OSV.dev vulnerability checks.</summary>
+    <description>actup is a version manager for GitHub Actions. Scan workflow and composite action files, pin versions in a single .actup.yaml manifest, check for known breaking changes and OSV.dev security advisories, and upgrade uses: refs interactively in a TUI or non-interactively in CI.
+
+## Features
+- Interactive TUI and non-interactive CLI for upgrading GitHub Actions uses: refs
+- Declarative .actup.yaml manifest with use, pin, unpin, sync, init, ls, and outdated commands
+- Built-in breaking-change registry and OSV.dev vulnerability auditing (actup audit)
+- Full commit SHA pinning with human-readable version comments
+- Built-in Model Context Protocol (MCP) server (actup mcp) for AI coding assistants</description>
+    <releaseNotes>https://github.com/lynicis/actup/releases/tag/v{{VERSION}}</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

@@ -45,6 +45,7 @@ Tests write to `t.TempDir()`; no network or disk fixtures. Mock `github`/`token`
 - **MCP tools degrade, never fail, on bad inputs:** an unreadable `.actup.yaml`/`actions.lock` logs a stderr warning and yields a nil config rather than an error, so tool calls still return structured output.
 - TUI model updates are easy to race — keep updates pure and rerun `make test`.
 - CGO is disabled; builds target linux/darwin/windows amd64+arm64 (no Windows arm64). API concurrency is capped at 5 via semaphore.
+- Chocolatey packaging lives in `packaging/chocolatey/` and runs on `windows-latest` via `.github/workflows/publish-chocolatey.yml` (called by `release.yml`, skipped on prereleases, requires `CHOCOLATEY_API_KEY`). Keep it download-at-install (`Get-ChocolateyWebFile` downloading `gh-actup-windows-amd64.exe` as `actup.exe` with SHA256 verification from GitHub Releases) rather than embedding binaries in `.nupkg`.
 - The skills under `skills/` (`actup`, `github-actions-updater`) are distributed artifacts, not conventions for this repo.
 
 ## External references
@@ -55,6 +56,6 @@ Tests write to `t.TempDir()`; no network or disk fixtures. Mock `github`/`token`
 | Release history, security policy | `CHANGELOG.md`, `SECURITY.md` |
 | Manifest schema | `schema.json` |
 | Design notes | `docs/plans/` |
-| Packaging & CI | `.goreleaser.yaml`, `Dockerfile`, `.github/workflows/` |
+| Packaging & CI | `.goreleaser.yaml`, `Dockerfile`, `packaging/chocolatey/`, `.github/workflows/` |
 | Pre-commit (runs `actup outdated`) | `.pre-commit-config.yaml` |
 | Automated agent install & workflow | `llms.txt`, `llm.txt` |

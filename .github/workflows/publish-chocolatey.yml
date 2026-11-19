@@ -1,0 +1,160 @@
+name: Publish Chocolatey Package
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to package (e.g. v0.10.1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Pack and verify locally on Windows without pushing to Chocolatey"
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      CHOCOLATEY_API_KEY:
+        required: false
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to package (e.g. v0.10.1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Pack and verify locally on Windows without pushing to Chocolatey"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  publish-chocolatey:
+    name: Pack, Verify & Publish Chocolatey Package
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve version and SHA256 checksum
+        id: meta
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:TAG -notmatch '^v\d+\.\d+\.\d+') {
+            throw "Invalid release tag '$env:TAG': expected format vX.Y.Z"
+          }
+          $version = $env:TAG.TrimStart('v')
+          $checksumFile = "actup_${version}_checksums.txt"
+          $assetName = "gh-actup-windows-amd64.exe"
+
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern $checksumFile --dir $env:RUNNER_TEMP --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to download $checksumFile for tag $env:TAG"
+          }
+
+          $checksumPath = Join-Path $env:RUNNER_TEMP $checksumFile
+          $match = Select-String -Path $checksumPath -Pattern "^([a-fA-F0-9]{64})\s+\*?$([regex]::Escape($assetName))$"
+          if (-not $match) {
+            throw "Checksum for $assetName not found in $checksumFile"
+          }
+          $sha256 = $match.Matches[0].Groups[1].Value.ToLowerInvariant()
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sha256=$sha256" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Resolved actup $version ($assetName SHA256: $sha256)"
+
+      - name: Render templates and pack nupkg
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SHA256: ${{ steps.meta.outputs.sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $buildDir = Join-Path $env:RUNNER_TEMP "choco-build"
+          $outDir = Join-Path $env:RUNNER_TEMP "choco-out"
+          New-Item -ItemType Directory -Force -Path $buildDir, $outDir | Out-Null
+
+          Copy-Item -Path "packaging/chocolatey/*" -Destination $buildDir -Recurse -Force
+
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          $files = @(
+            (Join-Path $buildDir "actup.nuspec"),
+            (Join-Path $buildDir "tools/chocolateyinstall.ps1")
+          )
+          foreach ($file in $files) {
+            $content = [System.IO.File]::ReadAllText($file, $utf8NoBom)
+            $content = $content.Replace('{{VERSION}}', $env:VERSION).Replace('{{CHECKSUM64}}', $env:SHA256)
+            [System.IO.File]::WriteAllText($file, $content, $utf8NoBom)
+          }
+
+          choco pack (Join-Path $buildDir "actup.nuspec") --out $outDir
+          if ($LASTEXITCODE -ne 0) {
+            throw "choco pack failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Verify install, binary execution, and uninstall
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $outDir = Join-Path $env:RUNNER_TEMP "choco-out"
+
+          choco install actup --source $outDir -y --no-progress
+          if ($LASTEXITCODE -ne 0) {
+            throw "choco install failed with exit code $LASTEXITCODE"
+          }
+
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+          $verOutput = & actup --version
+          if ($LASTEXITCODE -ne 0) {
+            throw "actup --version failed with exit code $LASTEXITCODE"
+          }
+          Write-Host "Installed binary output: $verOutput"
+          if ($verOutput -notmatch [regex]::Escape($env:VERSION)) {
+            throw "Expected version '$env:VERSION' in output '$verOutput'"
+          }
+
+          choco uninstall actup -y --no-progress
+          if ($LASTEXITCODE -ne 0) {
+            throw "choco uninstall failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Upload nupkg artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: chocolatey-actup-${{ steps.meta.outputs.version }}
+          path: ${{ runner.temp }}/choco-out/actup.${{ steps.meta.outputs.version }}.nupkg
+          retention-days: 14
+
+      - name: Push to Chocolatey Community Repository
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:CHOCOLATEY_API_KEY)) {
+            if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+              throw "CHOCOLATEY_API_KEY secret is not configured. Set it in repository secrets or run with dry_run=true."
+            }
+            Write-Host "::warning::CHOCOLATEY_API_KEY secret is not set; skipping Chocolatey push."
+            exit 0
+          }
+
+          $nupkg = Join-Path $env:RUNNER_TEMP "choco-out/actup.$($env:VERSION).nupkg"
+          choco push $nupkg --source https://push.chocolatey.org/ --api-key $env:CHOCOLATEY_API_KEY
+          if ($LASTEXITCODE -ne 0) {
+            throw "choco push failed with exit code $LASTEXITCODE"
+          }
