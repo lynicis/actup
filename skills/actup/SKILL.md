@@ -1,6 +1,6 @@
 ---
 name: actup
-description: Use when managing GitHub Actions versions with actup (MCP or CLI) to list, audit OSV.dev vulnerabilities, pin or sync .actup.yaml, switch to SHA or semver refs, and safely upgrade workflow uses: refs.
+description: "Use when managing GitHub Actions versions with actup (MCP or CLI) to list, audit OSV.dev vulnerabilities, pin or sync .actup.yaml, switch to SHA or semver refs, and safely upgrade workflow uses: refs."
 license: MIT
 ---
 
