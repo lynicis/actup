@@ -246,16 +246,16 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1794515471.830523,
-    "seen": 1794671472.427982,
-    "ast_hash": "851671caabb55d1b2490f3dd8ce20cbd",
-    "semantic_hash": "851671caabb55d1b2490f3dd8ce20cbd"
+    "mtime": 1795121610.7408855,
+    "seen": 1795121678.4688268,
+    "ast_hash": "5e557c942a1e8c9218e8f61e61174068",
+    "semantic_hash": ""
   },
   ".github/workflows/release.yml": {
-    "mtime": 1794564057.969864,
-    "seen": 1794671472.427983,
-    "ast_hash": "10355efcfbbe281a406c3f2588d55fcd",
-    "semantic_hash": "10355efcfbbe281a406c3f2588d55fcd"
+    "mtime": 1795121616.6095278,
+    "seen": 1795121678.468831,
+    "ast_hash": "d04544137122097518660957b3c25cdf",
+    "semantic_hash": ""
   },
   ".github/workflows/update-homebrew-tap.yaml": {
     "mtime": 1794515471.8307106,
@@ -282,15 +282,15 @@
     "semantic_hash": "5884097a401d2b42e4bd229976f30c95"
   },
   "AGENTS.md": {
-    "mtime": 1795119691.7750978,
-    "seen": 1795119781.635554,
-    "ast_hash": "6dc658e247da543151d2ba5c2888615f",
+    "mtime": 1795120897.2387671,
+    "seen": 1795120973.3361752,
+    "ast_hash": "7d72693a106d3b25851a5de5c1f09386",
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1794778274.3078985,
-    "seen": 1795119781.635554,
-    "ast_hash": "b01c11e98ae3253f45722e19f932122d",
+    "mtime": 1795120981.3383155,
+    "seen": 1795121678.468863,
+    "ast_hash": "7da2f2a3061b3e36a617f2b631151662",
     "semantic_hash": ""
   },
   "CODE_OF_CONDUCT.md": {
@@ -300,16 +300,16 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795119690.170963,
-    "seen": 1795119781.635556,
-    "ast_hash": "e755b80ffaf9d1c1104a4544d52b339d",
+    "mtime": 1795120594.126698,
+    "seen": 1795120973.3361769,
+    "ast_hash": "c5f6863828b793aa01eba6d3b93e99d9",
     "semantic_hash": ""
   },
   "SECURITY.md": {
-    "mtime": 1784878788.7547014,
-    "seen": 1794671472.428014,
-    "ast_hash": "0b6de6084e75da7be2de8729346990b1",
-    "semantic_hash": "0b6de6084e75da7be2de8729346990b1"
+    "mtime": 1795120898.8729086,
+    "seen": 1795120973.3361769,
+    "ast_hash": "e009470dc0263c5f59d28af8e30e6e3b",
+    "semantic_hash": ""
   },
   "internal/breakingchanges/registry.yaml": {
     "mtime": 1794453345.0532298,
@@ -468,9 +468,9 @@
     "semantic_hash": "8d6da9256afd2742f311a8a7ef45d5c4"
   },
   "CLAUDE.md": {
-    "mtime": 1795119691.7750978,
-    "seen": 1795119781.635555,
-    "ast_hash": "6dc658e247da543151d2ba5c2888615f",
+    "mtime": 1795120897.2387671,
+    "seen": 1795120973.3361762,
+    "ast_hash": "7d72693a106d3b25851a5de5c1f09386",
     "semantic_hash": ""
   },
   ".agents/product-marketing.md": {
@@ -480,15 +480,15 @@
     "semantic_hash": ""
   },
   "llm.txt": {
-    "mtime": 1794772964.2970688,
-    "seen": 1794773307.212909,
-    "ast_hash": "c5b9dd6be6f623918b1415169a12f6ca",
+    "mtime": 1795120598.513905,
+    "seen": 1795120973.336183,
+    "ast_hash": "f6c2b859a73d2634261b673dfc5babba",
     "semantic_hash": ""
   },
   "llms.txt": {
-    "mtime": 1794772964.2970688,
-    "seen": 1794773307.212909,
-    "ast_hash": "c5b9dd6be6f623918b1415169a12f6ca",
+    "mtime": 1795120598.513905,
+    "seen": 1795120973.336183,
+    "ast_hash": "f6c2b859a73d2634261b673dfc5babba",
     "semantic_hash": ""
   },
   "skills/actup/REFERENCE.md": {
@@ -501,6 +501,18 @@
     "mtime": 1795119744.9985275,
     "seen": 1795119781.635564,
     "ast_hash": "d0ed37d07f102f44a19b69bdcdb6ef9a",
+    "semantic_hash": ""
+  },
+  ".github/workflows/publish-chocolatey.yml": {
+    "mtime": 1795120895.9838364,
+    "seen": 1795120973.336142,
+    "ast_hash": "f5a297a2356e199c4c01f054a4c84885",
+    "semantic_hash": ""
+  },
+  "packaging/chocolatey/tools/chocolateyinstall.ps1": {
+    "mtime": 1795120893.9484432,
+    "seen": 1795120973.336171,
+    "ast_hash": "71fafc0b8ffd9ecce495d261fffb388c",
     "semantic_hash": ""
   }
 }
