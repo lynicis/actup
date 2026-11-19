@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.4] - 2026-11-20
+
+### Fixed
+- Quoted the `description` value in `skills/actup/SKILL.md` YAML frontmatter so `uses: ` is not parsed as a nested mapping by skill installers.
+- Resolved zizmor workflow security findings in `.github/workflows/ci.yml` and `.github/workflows/release.yml`.
+
 ## [0.10.3] - 2026-11-19
 
 ### Added
@@ -273,7 +279,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Concurrent GitHub API client with tag caching and rate-limiting support.
 - Falling back to the GitHub CLI (`gh`) token if no explicit token or env variable is set.
 
-[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/lynicis/actup/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/lynicis/actup/releases/tag/v0.10.4
 [0.10.3]: https://github.com/lynicis/actup/releases/tag/v0.10.3
 [0.10.2]: https://github.com/lynicis/actup/releases/tag/v0.10.2
 [0.10.1]: https://github.com/lynicis/actup/releases/tag/v0.10.1
