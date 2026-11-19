@@ -1,6 +1,6 @@
 .DS_Store
 dist/
-actup
+/actup
 graphify-out/cache/
 # Brag marketing video outputs and audio/artifact assets
 brag-output/*.mp4

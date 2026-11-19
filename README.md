@@ -325,21 +325,28 @@ actup ls --outdated               # 4. review what could be upgraded
 actup                             # 5. upgrade everything interactively
 ```
 
-## AI Skill
+## AI Skills
 
-You can also use `actup`'s workflow-upgrading logic as an Agent Skill in compatible AI coding agents (Claude Code, OpenCode, Cursor, etc.).
+`actup` ships two Agent Skills for compatible AI coding agents (Claude Code, OpenCode, Cursor, Antigravity, etc.):
+
+- **`actup`** (recommended): instructs agents to manage GitHub Actions versions through `actup` MCP tools or non-interactive CLI (`ls`, `outdated`, `audit`, `use`, `pin`, `sync`, `--sha`, `--semver`, `actions.lock`), with guided installation via `llms.txt` if `actup` is not installed.
+- **`github-actions-updater`**: standalone fallback that scans `.github/workflows/*.yml` and suggests upgrades even when `actup` is not installed.
 
 ### Install
 
 Via `gh skill` (agentskills.io):
 
 ```sh
+gh skill install lynicis/actup actup
+# or standalone fallback without actup:
 gh skill install lynicis/actup github-actions-updater
 ```
 
 Via `npx skills` (skills.sh):
 
 ```sh
+npx skills add lynicis/actup --skill actup
+# or standalone fallback without actup:
 npx skills add lynicis/actup --skill github-actions-updater
 ```
 
@@ -349,9 +356,10 @@ Once installed, ask your agent:
 
 > "Update my GitHub Actions"
 > "Which actions are out of date?"
-> "Bump actions in my workflows"
+> "Audit my workflows for vulnerable actions"
+> "Pin actions/checkout to v4 in .actup.yaml and switch workflows to SHA pinning"
 
-The skill scans your `.github/workflows/*.yml` files, resolves the latest version of each action from GitHub, warns about known breaking changes, and produces a diff-style report with suggested upgrades. It does **not** edit files unless you explicitly ask.
+Both skills inspect read-only first, warn about known breaking changes, and preview changes before editing workflow files.
 
 ## MCP
 

@@ -45,7 +45,7 @@ Tests write to `t.TempDir()`; no network or disk fixtures. Mock `github`/`token`
 - **MCP tools degrade, never fail, on bad inputs:** an unreadable `.actup.yaml`/`actions.lock` logs a stderr warning and yields a nil config rather than an error, so tool calls still return structured output.
 - TUI model updates are easy to race — keep updates pure and rerun `make test`.
 - CGO is disabled; builds target linux/darwin/windows amd64+arm64 (no Windows arm64). API concurrency is capped at 5 via semaphore.
-- The `github-actions-updater` skill under `skills/` is a distributed artifact, not a convention for this repo.
+- The skills under `skills/` (`actup`, `github-actions-updater`) are distributed artifacts, not conventions for this repo.
 
 ## External references
 
